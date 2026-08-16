@@ -216,5 +216,3 @@ Example important files:
 - GitHub: https://github.com/your-username/stock_market
 - LinkedIn: https://www.linkedin.com/in/your-name
 - Email: your.email@example.com
-
-If you'd like help deploying, adding CI, or polishing any feature for your portfolio, open an issue or drop a message — happy to collaborate! ✨
