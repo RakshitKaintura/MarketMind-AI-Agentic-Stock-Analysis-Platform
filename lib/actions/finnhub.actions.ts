@@ -82,6 +82,60 @@ const calculateVolatility = (values: number[]) => {
   return Math.sqrt(variance) * Math.sqrt(252) * 100;
 };
 
+const calculateEMA = (values: number[], period: number) => {
+  if (values.length < period) return null;
+  const multiplier = 2 / (period + 1);
+  
+  let ema = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  
+  for (let i = period; i < values.length; i++) {
+    ema = (values[i] - ema) * multiplier + ema;
+  }
+  return ema;
+};
+
+const calculateMACD = (values: number[]) => {
+  const ema12 = calculateEMA(values, 12);
+  const ema26 = calculateEMA(values, 26);
+  
+  if (ema12 === null || ema26 === null) return null;
+  
+  const macdLine = ema12 - ema26;
+  return {
+    macdLine,
+    signal: macdLine > 0 ? "Bullish" : "Bearish",
+  };
+};
+
+const calculateBollingerBands = (values: number[], period = 20) => {
+  if (values.length < period) return null;
+  
+  const slice = values.slice(-period);
+  const sma = slice.reduce((a, b) => a + b, 0) / period;
+  const stdDev = Math.sqrt(
+    slice.reduce((sum, v) => sum + (v - sma) ** 2, 0) / period
+  );
+  
+  const currentPrice = values[values.length - 1];
+  return {
+    upper: sma + 2 * stdDev,
+    middle: sma,
+    lower: sma - 2 * stdDev,
+    percentB: ((currentPrice - (sma - 2 * stdDev)) / (4 * stdDev)) * 100,
+  };
+};
+
+const calculateVolumeTrend = (volumes: number[]) => {
+  if (volumes.length < 20) return null;
+  const recent10 = volumes.slice(-10).reduce((a, b) => a + b, 0) / 10;
+  const previous10 = volumes.slice(-20, -10).reduce((a, b) => a + b, 0) / 10;
+  return {
+    avgVolume10d: recent10,
+    volumeChange: ((recent10 - previous10) / previous10) * 100,
+    trend: recent10 > previous10 ? "Increasing" : "Decreasing",
+  };
+};
+
 // ─── 1. Search Stocks ───────────────────────────────────────────────────────
 export const searchStocks = cache(async (query?: string) => {
   try {
@@ -195,10 +249,20 @@ export const getStocksDetails = cache(async (symbol: string) => {
       .map((item: any) => item?.close)
       .filter((value: unknown): value is number => typeof value === "number" && Number.isFinite(value));
 
+    const volumes = (Array.isArray(historical) ? historical : [])
+      .map((item: any) => item?.volume)
+      .filter((value: unknown): value is number => typeof value === "number" && Number.isFinite(value));
+
     const sma20 = calculateSMA(closes, 20);
     const sma50 = calculateSMA(closes, 50);
     const rsi14 = calculateRSI(closes, 14);
     const annualizedVolatility = calculateVolatility(closes);
+    
+    const ema12 = calculateEMA(closes, 12);
+    const ema26 = calculateEMA(closes, 26);
+    const macd = calculateMACD(closes);
+    const bollingerBands = calculateBollingerBands(closes);
+    const volumeTrend = calculateVolumeTrend(volumes);
 
     const summaryDetail = summary?.summaryDetail ?? {};
     const keyStats = summary?.defaultKeyStatistics ?? {};
@@ -243,6 +307,13 @@ export const getStocksDetails = cache(async (symbol: string) => {
         rsi14: rsi14 !== null ? rsi14.toFixed(2) : "—",
         annualizedVolatility:
           annualizedVolatility !== null ? `${annualizedVolatility.toFixed(2)}%` : "—",
+        ema12: ema12 ? formatPrice(ema12) : "—",
+        ema26: ema26 ? formatPrice(ema26) : "—",
+        macdSignal: macd ? `${macd.macdLine.toFixed(2)} (${macd.signal})` : "—",
+        bollingerUpper: bollingerBands ? formatPrice(bollingerBands.upper) : "—",
+        bollingerLower: bollingerBands ? formatPrice(bollingerBands.lower) : "—",
+        bollingerPercentB: bollingerBands ? `${bollingerBands.percentB.toFixed(2)}%` : "—",
+        volumeTrend: volumeTrend ? `${volumeTrend.trend} (${volumeTrend.volumeChange > 0 ? '+' : ''}${volumeTrend.volumeChange.toFixed(2)}%)` : "—",
       },
     };
   } catch (error) { return null; }

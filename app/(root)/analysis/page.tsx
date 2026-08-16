@@ -11,9 +11,32 @@ type AnalysisResponse = {
   error?: string;
 };
 
-type AnalysisSection = {
-  title: string;
-  lines: string[];
+type AnalysisData = {
+  executiveSummary?: string;
+  fundamentalAnalysis?: {
+    valuation?: string;
+    profitability?: string;
+    growth?: string;
+    leverage?: string;
+    cashFlow?: string;
+  };
+  technicalAnalysis?: {
+    trend?: string;
+    momentum?: string;
+    volatility?: string;
+  };
+  industryContext?: string;
+  riskAssessment?: {
+    businessRisk?: string;
+    valuationRisk?: string;
+    macroRisk?: string;
+  };
+  actionPlan?: string[];
+  monitoringChecklist?: string[];
+  confidence?: string;
+  bullCase?: string;
+  bearCase?: string;
+  fallbackReason?: string;
 };
 
 const defaultResult: AnalysisResponse | null = null;
@@ -32,45 +55,9 @@ const parseSnapshot = (snapshot: string) => {
     });
 };
 
-const formatAnalysisBlocks = (analysis: string) => {
-  return analysis
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-};
-
-const parseAnalysisSections = (analysis: string) => {
-  const rows = formatAnalysisBlocks(analysis);
-  const sections: AnalysisSection[] = [];
-  const metaLines: string[] = [];
-
-  for (const row of rows) {
-    const headingMatch = row.match(/^\d+[\).]\s*(.+)$/) || row.match(/^#+\s*(.+)$/);
-    if (headingMatch) {
-      sections.push({ title: headingMatch[1].trim(), lines: [] });
-      continue;
-    }
-
-    const isMetaLine = /^(caution:|note:)/i.test(row);
-    if (isMetaLine) {
-      metaLines.push(row);
-      continue;
-    }
-
-    if (sections.length === 0) {
-      sections.push({ title: "Summary", lines: [row] });
-      continue;
-    }
-
-    sections[sections.length - 1].lines.push(row);
-  }
-
-  return { sections, metaLines };
-};
-
 const getSectionPriority = (title: string) => {
   const normalized = title.toLowerCase();
-  if (normalized.includes("risk") || normalized.includes("action")) {
+  if (normalized.includes("risk") || normalized.includes("action") || normalized.includes("bear") || normalized.includes("bull")) {
     return { label: "High Priority", className: "text-[#FF8A4C] bg-[#FF8A4C]/10 border-[#FF8A4C]/20" };
   }
   if (normalized.includes("executive") || normalized.includes("confidence")) {
@@ -116,10 +103,15 @@ export default function AnalysisPage() {
   const [error, setError] = useState("");
 
   const snapshotRows = result?.stockData ? parseSnapshot(result.stockData) : [];
-  const analysisRows = result?.analysis ? formatAnalysisBlocks(result.analysis) : [];
-  const { sections: analysisSections, metaLines: analysisMetaLines } = result?.analysis
-    ? parseAnalysisSections(result.analysis)
-    : { sections: [], metaLines: [] };
+  
+  let analysisData: AnalysisData | null = null;
+  if (result?.analysis) {
+    try {
+      analysisData = JSON.parse(result.analysis);
+    } catch (e) {
+      console.error("Failed to parse analysis JSON:", e);
+    }
+  }
   const snapshotSplitIndex = Math.ceil(snapshotRows.length / 2);
   const snapshotRowsLeft = snapshotRows.slice(0, snapshotSplitIndex);
   const snapshotRowsRight = snapshotRows.slice(snapshotSplitIndex);
@@ -135,17 +127,28 @@ export default function AnalysisPage() {
   const debtToEquity = parseNumericValue(metricMap["debt to equity"]);
   const change = parseNumericValue(metricMap["change"]);
 
+  const SECTOR_PE_BENCHMARKS: Record<string, { low: number; fair: number; high: number }> = {
+    "Technology":          { low: 20, fair: 35, high: 55 },
+    "Financial Services":  { low: 10, fair: 18, high: 28 },
+    "Consumer Defensive":  { low: 25, fair: 40, high: 60 },
+    "Healthcare":          { low: 20, fair: 30, high: 50 },
+    "Energy":              { low: 8,  fair: 15, high: 25 },
+    "Industrials":         { low: 15, fair: 25, high: 40 },
+    "default":             { low: 15, fair: 25, high: 45 },
+  };
+  
+  const sector = metricMap["sector"] || "default";
+  const benchmark = SECTOR_PE_BENCHMARKS[sector] || SECTOR_PE_BENCHMARKS["default"];
+  
   let valuationScore = 50;
   if (peRatio !== null) {
-    if (peRatio <= 20) valuationScore += 28;
-    else if (peRatio <= 30) valuationScore += 16;
-    else if (peRatio <= 40) valuationScore += 6;
-    else if (peRatio <= 50) valuationScore -= 10;
-    else if (peRatio <= 70) valuationScore -= 24;
-    else valuationScore -= 34;
+    if (peRatio <= benchmark.low) valuationScore += 28;
+    else if (peRatio <= benchmark.fair) valuationScore += 16;
+    else if (peRatio <= benchmark.high) valuationScore += 0;
+    else valuationScore -= 24;
 
     // Forgive premium valuation when earnings momentum is decisively strong.
-    if (peRatio > 45 && earningsGrowth !== null) {
+    if (peRatio > benchmark.high && earningsGrowth !== null) {
       if (earningsGrowth >= 25) valuationScore += 14;
       else if (earningsGrowth >= 15) valuationScore += 8;
       else if (earningsGrowth >= 8) valuationScore += 4;
@@ -453,61 +456,172 @@ export default function AnalysisPage() {
                 <h3 className="text-sm font-semibold text-white">Main Analysis</h3>
               </div>
               <div className="p-5">
-                {analysisRows.length > 0 ? (
+                {analysisData ? (
                   <div className="space-y-4 min-h-60">
                     <div className="grid gap-3 md:grid-cols-2">
-                      {analysisSections.map((section) => {
-                        const priority = getSectionPriority(section.title);
+                      {/* Executive Summary */}
+                      {analysisData.executiveSummary && (
+                        <article className="rounded-lg border border-[#2a2e39] bg-[#11151e] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-[#d4a017]">Executive Summary</h4>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getSectionPriority("executive").className}`}>
+                              {getSectionPriority("executive").label}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm leading-relaxed text-[#d6d8df]">{analysisData.executiveSummary}</p>
+                        </article>
+                      )}
 
-                        return (
-                          <article
-                            key={section.title}
-                            className="rounded-lg border border-[#2a2e39] bg-[#11151e] p-4"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <h4 className="text-sm font-semibold text-[#d4a017]">{section.title}</h4>
-                              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${priority.className}`}>
-                                {priority.label}
-                              </span>
-                            </div>
+                      {/* Fundamental Analysis */}
+                      {analysisData.fundamentalAnalysis && (
+                        <article className="rounded-lg border border-[#2a2e39] bg-[#11151e] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-[#d4a017]">Fundamental Analysis</h4>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getSectionPriority("fundamentals").className}`}>
+                              {getSectionPriority("fundamentals").label}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {Object.entries(analysisData.fundamentalAnalysis).map(([key, value]) => (
+                              <div key={key} className="flex items-start gap-2">
+                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#d4a017] shrink-0" />
+                                <p className="text-sm leading-relaxed text-[#d6d8df] capitalize">{key}: {value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </article>
+                      )}
 
-                            <div className="mt-3 space-y-2">
-                              {section.lines.length > 0 ? (
-                                section.lines.map((line, index) => (
-                                  <div key={`${section.title}-${index}`} className="flex items-start gap-2">
-                                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#d4a017]" />
-                                    <p className="text-sm leading-relaxed text-[#d6d8df]">{toBulletText(line)}</p>
+                      {/* Technical Analysis */}
+                      {analysisData.technicalAnalysis && (
+                        <article className="rounded-lg border border-[#2a2e39] bg-[#11151e] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-[#d4a017]">Technical Analysis</h4>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getSectionPriority("technical").className}`}>
+                              {getSectionPriority("technical").label}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {Object.entries(analysisData.technicalAnalysis).map(([key, value]) => (
+                              <div key={key} className="flex items-start gap-2">
+                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#d4a017] shrink-0" />
+                                <p className="text-sm leading-relaxed text-[#d6d8df] capitalize">{key}: {value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </article>
+                      )}
+
+                      {/* Risk Assessment */}
+                      {analysisData.riskAssessment && (
+                        <article className="rounded-lg border border-[#2a2e39] bg-[#11151e] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-[#d4a017]">Risk Assessment</h4>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getSectionPriority("risk").className}`}>
+                              {getSectionPriority("risk").label}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {Object.entries(analysisData.riskAssessment).map(([key, value]) => (
+                              <div key={key} className="flex items-start gap-2">
+                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#d4a017] shrink-0" />
+                                <p className="text-sm leading-relaxed text-[#d6d8df] capitalize">{key.replace(/([A-Z])/g, ' $1')}: {value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </article>
+                      )}
+
+                      {/* Action Plan & Monitoring */}
+                      {(analysisData.actionPlan || analysisData.monitoringChecklist) && (
+                        <article className="rounded-lg border border-[#2a2e39] bg-[#11151e] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-[#d4a017]">Action & Monitoring</h4>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getSectionPriority("action").className}`}>
+                              {getSectionPriority("action").label}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-3">
+                            {analysisData.actionPlan && (
+                              <div>
+                                <p className="text-xs uppercase tracking-wide text-[#7a7f8e] mb-1">Action Plan</p>
+                                {analysisData.actionPlan.map((step, idx) => (
+                                  <div key={idx} className="flex items-start gap-2">
+                                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#d4a017] shrink-0" />
+                                    <p className="text-sm leading-relaxed text-[#d6d8df]">{step}</p>
                                   </div>
-                                ))
-                              ) : (
-                                <p className="text-sm leading-relaxed text-[#9ca3b2]">No additional details provided.</p>
-                              )}
-                            </div>
-                          </article>
-                        );
-                      })}
+                                ))}
+                              </div>
+                            )}
+                            {analysisData.monitoringChecklist && (
+                              <div>
+                                <p className="text-xs uppercase tracking-wide text-[#7a7f8e] mb-1 mt-2">Monitoring Checklist</p>
+                                {analysisData.monitoringChecklist.map((item, idx) => (
+                                  <div key={idx} className="flex items-start gap-2">
+                                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#d4a017] shrink-0" />
+                                    <p className="text-sm leading-relaxed text-[#d6d8df]">{item}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      )}
+
+                      {/* Industry Context */}
+                      {analysisData.industryContext && (
+                        <article className="rounded-lg border border-[#2a2e39] bg-[#11151e] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-[#d4a017]">Industry & Peer Context</h4>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getSectionPriority("industry").className}`}>
+                              {getSectionPriority("industry").label}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm leading-relaxed text-[#d6d8df]">{analysisData.industryContext}</p>
+                        </article>
+                      )}
+
+                      {/* Bull & Bear Cases */}
+                      {(analysisData.bullCase || analysisData.bearCase) && (
+                        <article className="rounded-lg border border-[#2a2e39] bg-[#11151e] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-[#d4a017]">Bull & Bear Cases</h4>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getSectionPriority("bull").className}`}>
+                              {getSectionPriority("bull").label}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-3">
+                            {analysisData.bullCase && (
+                              <div>
+                                <p className="text-xs uppercase tracking-wide text-[#0FEDBE] mb-1">Bull Case</p>
+                                <p className="text-sm leading-relaxed text-[#d6d8df]">{analysisData.bullCase}</p>
+                              </div>
+                            )}
+                            {analysisData.bearCase && (
+                              <div>
+                                <p className="text-xs uppercase tracking-wide text-[#FF495B] mb-1">Bear Case</p>
+                                <p className="text-sm leading-relaxed text-[#d6d8df]">{analysisData.bearCase}</p>
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      )}
                     </div>
 
-                    {analysisMetaLines.length > 0 ? (
-                      <div className="space-y-2">
-                        {analysisMetaLines.map((line) => {
-                          const isCaution = /^caution:/i.test(line);
-
-                          return (
-                            <div
-                              key={line}
-                              className={
-                                isCaution
-                                  ? "rounded-lg border border-[#FF8A4C]/25 bg-[#FF8A4C]/10 px-4 py-3"
-                                  : "rounded-lg border border-[#6b7280]/30 bg-[#11151e] px-4 py-3"
-                              }
-                            >
-                              <p className={isCaution ? "text-sm font-medium text-[#FFB089]" : "text-sm text-[#b9c0cd]"}>{line}</p>
-                            </div>
-                          );
-                        })}
+                    {/* Meta/Fallback Lines */}
+                    {analysisData.fallbackReason && (
+                      <div className="rounded-lg border border-[#FF8A4C]/25 bg-[#FF8A4C]/10 px-4 py-3">
+                        <p className="text-sm font-medium text-[#FFB089]">Note: AI model fallback used ({analysisData.fallbackReason}).</p>
                       </div>
-                    ) : null}
+                    )}
+                    <div className="rounded-lg border border-[#6b7280]/30 bg-[#11151e] px-4 py-3">
+                      <p className="text-sm text-[#b9c0cd]">Caution: This is informational analysis, not guaranteed investment advice. Model Confidence: {analysisData.confidence || "Unknown"}</p>
+                    </div>
+
+                  </div>
+                ) : result?.analysis && !analysisData ? (
+                  <div className="text-sm leading-relaxed text-[#FF495B] min-h-60 flex items-center">
+                    Analysis response could not be parsed as structured data. Raw response: {result.analysis}
                   </div>
                 ) : (
                   <div className="text-sm leading-relaxed text-[#7a7f8e] min-h-60 flex items-center">

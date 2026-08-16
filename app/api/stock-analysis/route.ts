@@ -3,6 +3,8 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 
 import { getStocksDetails } from "@/lib/actions/finnhub.actions";
+import { connectToDatabase } from "@/database/mongoose";
+import { AnalysisCacheModel } from "@/database/models/analysis-cache.model";
 
 export const runtime = "nodejs";
 
@@ -98,38 +100,33 @@ const buildFallbackAnalysis = (
       ? "Prioritize business quality, valuation discipline, and earnings consistency over price noise."
       : "Blend technical trend confirmation with valuation and financial quality checks.";
 
-  return [
-    "1) Executive Summary",
-    `Current market tone is ${trend} (${changePercent.toFixed(2)}%). The stock sits in ${sector} / ${industry} with ${confidence.toLowerCase()} conviction based on available data.`,
-    "",
-    "2) Fundamental Analysis",
-    `Valuation signal: P/E ${pe}; profitability signal: ROE ${roe}; leverage check: Debt-to-Equity ${debtToEquity}.`,
-    "Use these metrics together before deciding position size.",
-    "",
-    "3) Technical Analysis",
-    `Momentum check: RSI(14) ${rsi}; volatility profile: ${volatility}.`,
-    "Track support and resistance behavior before fresh entries.",
-    "",
-    "4) Industry and Peer Context",
-    "Compare valuation and growth against direct sector peers before finalizing conviction.",
-    "",
-    "5) Risk Assessment",
-    riskNote,
-    "",
-    "6) Action Plan",
-    horizonPlan,
-    "",
-    "7) Monitoring Checklist",
-    "Review revenue/EPS trend, margin direction, debt trajectory, shareholding trend, and major company news each quarter.",
-    "",
-    "8) Confidence (Low/Medium/High)",
-    confidence,
-    "",
-    "Caution: This is informational analysis, not guaranteed investment advice.",
-    reason ? `Note: AI model fallback used (${reason}).` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  return JSON.stringify({
+    executiveSummary: `Current market tone is ${trend} (${changePercent.toFixed(2)}%). The stock sits in ${sector} / ${industry} with ${confidence.toLowerCase()} conviction based on available data.`,
+    fundamentalAnalysis: {
+      valuation: `Valuation signal: P/E ${pe}`,
+      profitability: `Profitability signal: ROE ${roe}`,
+      growth: "Growth data unavailable",
+      leverage: `Leverage check: Debt-to-Equity ${debtToEquity}`,
+      cashFlow: "Cash flow data unavailable"
+    },
+    technicalAnalysis: {
+      trend: "Track support and resistance behavior before fresh entries.",
+      momentum: `Momentum check: RSI(14) ${rsi}`,
+      volatility: `Volatility profile: ${volatility}`
+    },
+    industryContext: "Compare valuation and growth against direct sector peers before finalizing conviction.",
+    riskAssessment: {
+      businessRisk: riskNote,
+      valuationRisk: "Ensure valuation aligns with historical averages.",
+      macroRisk: "Monitor sector-specific macroeconomic headwinds."
+    },
+    actionPlan: [horizonPlan],
+    monitoringChecklist: ["Review revenue/EPS trend", "Check margin direction", "Monitor debt trajectory", "Track shareholding trend", "Follow major company news each quarter"],
+    confidence: confidence,
+    bullCase: "Market sentiment improves, supported by strong fundamentals.",
+    bearCase: "Market downturn affects sector valuation and growth.",
+    fallbackReason: reason || "Unknown error"
+  }, null, 2);
 };
 
 const normalizeSymbol = (raw: string) => {
@@ -147,6 +144,7 @@ const AnalysisState = Annotation.Root({
   timeframe: Annotation<string>,
   riskProfile: Annotation<string>,
   stockDataText: Annotation<string>,
+  newsText: Annotation<string>,
   analysis: Annotation<string>,
 });
 
@@ -159,6 +157,29 @@ export async function POST(request: Request) {
         { error: "Stock symbol is required" },
         { status: 400 }
       );
+    }
+
+    const normalizedSymbol = normalizeSymbol(body.symbol);
+    const timeframe = body.timeframe ?? "medium";
+    const riskProfile = body.riskProfile ?? "balanced";
+
+    // 1. Check cache first
+    await connectToDatabase();
+    const cached = await AnalysisCacheModel.findOne({
+      symbol: normalizedSymbol,
+      timeframe,
+      riskProfile,
+    }).lean();
+
+    if (cached) {
+      return NextResponse.json({
+        symbol: cached.symbol,
+        timeframe: cached.timeframe,
+        riskProfile: cached.riskProfile,
+        stockData: cached.stockData,
+        analysis: cached.analysis,
+        cached: true,
+      });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -196,6 +217,11 @@ export async function POST(request: Request) {
         `SMA 20: ${fallbackData.technical?.sma20 ?? "—"}`,
         `SMA 50: ${fallbackData.technical?.sma50 ?? "—"}`,
         `Annualized Volatility: ${fallbackData.technical?.annualizedVolatility ?? "—"}`,
+        `EMA 12: ${fallbackData.technical?.ema12 ?? "—"}`,
+        `EMA 26: ${fallbackData.technical?.ema26 ?? "—"}`,
+        `MACD Signal: ${fallbackData.technical?.macdSignal ?? "—"}`,
+        `Bollinger Bands: Upper ${fallbackData.technical?.bollingerUpper ?? "—"}, Lower ${fallbackData.technical?.bollingerLower ?? "—"}, PercentB ${fallbackData.technical?.bollingerPercentB ?? "—"}`,
+        `Volume Trend: ${fallbackData.technical?.volumeTrend ?? "—"}`,
         `P/E Ratio: ${fallbackData.peRatio}`,
         `P/B Ratio: ${fallbackData.pbRatio}`,
         `ROE: ${fallbackData.roe}`,
@@ -220,6 +246,28 @@ export async function POST(request: Request) {
       return { stockDataText: details };
     };
 
+    const fetchNewsNode = async (state: typeof AnalysisState.State) => {
+      const { getNews } = await import("@/lib/actions/finnhub.actions");
+      const companyName = state.stockDataText
+        ? state.stockDataText
+            .split("\n")
+            .find(l => l.startsWith("Company:"))
+            ?.split(":")[1]?.trim() || state.symbol
+        : state.symbol;
+      
+      const articles = await getNews([companyName]);
+      
+      if (!articles || articles.length === 0) {
+        return { newsText: "No recent news available for this stock." };
+      }
+      
+      const newsText = articles.slice(0, 5).map((a, i) => 
+        `${i + 1}. [${a.source}] ${a.headline} (${new Date(a.datetime).toLocaleDateString()})`
+      ).join("\n");
+      
+      return { newsText };
+    };
+
     const analyzeNode = async (state: typeof AnalysisState.State) => {
       if (!llm) {
         return {
@@ -233,26 +281,49 @@ export async function POST(request: Request) {
       }
 
       const prompt = [
-        "You are an Indian stock market analysis assistant.",
-        "Use only the provided stock snapshot.",
-        "Do not fabricate missing values; explicitly call out unavailable data.",
+        "You are a SEBI-registered investment analyst specializing in Indian equities (NSE/BSE).",
+        "Your analysis is used by retail investors in India.",
+        "Use ONLY the provided data snapshot and recent news. Never invent numbers.",
+        "If a metric shows '—', explicitly state it is unavailable.",
+        "All price references must use INR (₹).",
         `Investor risk profile: ${state.riskProfile}`,
         `Time horizon: ${state.timeframe}`,
-        "Create practical output in markdown with exactly these numbered sections:",
-        "1) Executive Summary",
-        "2) Fundamental Analysis",
-        "3) Technical Analysis",
-        "4) Industry and Peer Context",
-        "5) Risk Assessment",
-        "6) Action Plan",
-        "7) Monitoring Checklist",
-        "8) Confidence (Low/Medium/High)",
-        "Fundamental Analysis must include valuation, profitability, growth, leverage, and cash flow quality observations from the provided data.",
-        "Technical Analysis must include trend/momentum context using RSI/SMA and volatility from provided data.",
-        "Risk Assessment must mention business, valuation, and macro/policy risks.",
-        "Action Plan must be specific to the selected timeframe and risk profile.",
-        "Keep each section concise but useful, ideally 2 to 5 bullets.",
-        "Do not guarantee returns and include exactly one caution line at the end.",
+        `Current Indian market context: Include any observations about Nifty 50 positioning relative to the stock's beta.`,
+        "",
+        "Return your analysis as a valid JSON object with exactly this structure. Do not use markdown backticks around the JSON string. Do not return anything other than the JSON object.",
+        JSON.stringify({
+          executiveSummary: "2-3 sentences. Include a clear BULLISH/BEARISH/NEUTRAL stance.",
+          fundamentalAnalysis: {
+            valuation: "P/E vs sector avg, P/B",
+            profitability: "ROE, margins", 
+            growth: "revenue + earnings",
+            leverage: "D/E, current ratio",
+            cashFlow: "cash flow quality"
+          },
+          technicalAnalysis: {
+            trend: "price vs SMA20/50, 52W range position",
+            momentum: "RSI zone",
+            volatility: "volatility regime"
+          },
+          industryContext: "Compare this stock's valuation and growth against 2-3 named sector peers.",
+          riskAssessment: {
+            businessRisk: "observation (Low/Medium/High severity)",
+            valuationRisk: "observation (Low/Medium/High severity)",
+            macroRisk: "observation (Low/Medium/High severity)"
+          },
+          actionPlan: ["specific step tailored to timeframe/risk profile", "specific step...", "specific step..."],
+          monitoringChecklist: ["specific trigger for review", "specific trigger...", "specific trigger..."],
+          confidence: "Low | Medium | High with a one-line justification",
+          bullCase: "best case scenario",
+          bearCase: "worst case scenario"
+        }, null, 2),
+        "",
+        "IMPORTANT: Be specific. Replace generic phrases like 'monitor the stock' with specific metrics like 'Review if RSI crosses above 70 or if quarterly EPS growth drops below 10%.'",
+        "",
+        "Recent News Headlines:",
+        state.newsText,
+        "",
+        "Factor these news items into your Risk Assessment and Executive Summary.",
         "",
         "Stock snapshot:",
         state.stockDataText,
@@ -260,7 +331,10 @@ export async function POST(request: Request) {
 
       try {
         const result = await llm.invoke(prompt);
-        const analysisText = parseModelText(result);
+        let analysisText = parseModelText(result);
+        
+        // Remove markdown backticks if the model added them
+        analysisText = analysisText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
 
         if (!analysisText) {
           return {
@@ -289,24 +363,37 @@ export async function POST(request: Request) {
 
     const graph = new StateGraph(AnalysisState)
       .addNode("fetch_stock", fetchStockNode)
+      .addNode("fetch_news", fetchNewsNode)
       .addNode("analyze", analyzeNode)
       .addEdge(START, "fetch_stock")
+      .addEdge(START, "fetch_news")
       .addEdge("fetch_stock", "analyze")
+      .addEdge("fetch_news", "analyze")
       .addEdge("analyze", END)
       .compile();
 
     const result = await graph.invoke({
-      symbol: body.symbol,
-      timeframe: body.timeframe ?? "medium",
-      riskProfile: body.riskProfile ?? "balanced",
+      symbol: normalizedSymbol,
+      timeframe: timeframe,
+      riskProfile: riskProfile,
       stockDataText: "",
+      newsText: "",
       analysis: "",
     });
 
+    // 2. Save result to cache
+    await AnalysisCacheModel.create({
+      symbol: normalizedSymbol,
+      timeframe,
+      riskProfile,
+      stockData: result.stockDataText,
+      analysis: result.analysis,
+    });
+
     return NextResponse.json({
-      symbol: normalizeSymbol(body.symbol),
-      timeframe: body.timeframe ?? "medium",
-      riskProfile: body.riskProfile ?? "balanced",
+      symbol: normalizedSymbol,
+      timeframe: timeframe,
+      riskProfile: riskProfile,
       stockData: result.stockDataText,
       analysis: result.analysis,
     });
