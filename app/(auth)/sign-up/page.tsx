@@ -34,7 +34,13 @@ const SignUp = () => {
     const onSubmit = async (data: SignUpFormData) => {
         try {
             const result = await signUpWithEmail(data);
-            if(result.success) router.push('/');
+            if(result.success) {
+                router.push('/');
+            } else {
+                toast.error('Sign up failed', {
+                    description: result.error || 'Failed to create an account.'
+                });
+            }
         } catch (e) {
             console.error(e);
             toast.error('Sign up failed', {
@@ -63,7 +69,13 @@ const SignUp = () => {
                     placeholder="rakshitkaintura@gmail.com"
                     register={register}
                     error={errors.email}
-                    validation={{ required: 'Email name is required', pattern: /^\w+@\w+\.\w+$/, message: 'Email address is required' }}
+                    validation={{ 
+                        required: 'Email address is required', 
+                        pattern: {
+                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                            message: "Invalid email address format"
+                        }
+                    }}
                 />
 
                 <InputField
