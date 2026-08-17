@@ -22,8 +22,11 @@ interface MarketNewsArticle {
 // --- Functions ---
 
 export const sendSignUpEmail = inngest.createFunction(
-    { id: 'sign-up-email' },
-    { event: 'app/user.created' },
+    { 
+        id: 'sign-up-email',
+        // @ts-ignore
+        triggers: [{ event: 'app/user.created' }]
+    },
     async ({ event, step }) => {
         const userProfile = `
             - Country: ${event.data.country}
@@ -35,7 +38,7 @@ export const sendSignUpEmail = inngest.createFunction(
         const prompt = PERSONALIZED_WELCOME_EMAIL_PROMPT.replace('{{userProfile}}', userProfile);
 
         const response = await step.ai.infer('generate-welcome-intro', {
-            model: step.ai.models.gemini({ model: 'gemini-2.5-flash-lite' }),
+            model: step.ai.models.gemini({ model: 'gemini-3.6-flash' }),
             body: {
                 contents: [
                     {
@@ -59,8 +62,11 @@ export const sendSignUpEmail = inngest.createFunction(
 );
 
 export const sendDailyNewsSummary = inngest.createFunction(
-    { id: 'daily-news-summary' },
-    [{ event: 'app/send.daily.news' }, { cron: '0 12 * * *' }],
+    { 
+        id: 'daily-news-summary',
+        // @ts-ignore
+        triggers: [{ event: 'app/send.daily.news' }, { cron: '0 12 * * *' }]
+    },
     async ({ step }) => {
         // Step #1: Explicitly type the result of the database call
         const users = await step.run('get-all-users', async () => {
@@ -102,7 +108,7 @@ export const sendDailyNewsSummary = inngest.createFunction(
             try {
                 // We use a unique step ID per user to track progress
                 const response = await step.ai.infer(`summarize-news-${user.email}`, {
-                    model: step.ai.models.gemini({ model: 'gemini-2.5-flash-lite' }),
+                    model: step.ai.models.gemini({ model: 'gemini-3.6-flash' }),
                     body: {
                         contents: [{ 
                             role: 'user', 

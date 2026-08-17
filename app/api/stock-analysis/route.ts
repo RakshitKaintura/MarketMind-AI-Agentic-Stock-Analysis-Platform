@@ -145,6 +145,7 @@ const AnalysisState = Annotation.Root({
   riskProfile: Annotation<string>,
   stockDataText: Annotation<string>,
   newsText: Annotation<string>,
+  peersText: Annotation<string>,
   analysis: Annotation<string>,
 });
 
@@ -185,7 +186,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
     const llm = apiKey
       ? new ChatGoogleGenerativeAI({
-          model: "gemini-1.5-flash",
+          model: "gemini-3.6-flash",
           apiKey,
           temperature: 0.2,
         })
@@ -268,6 +269,47 @@ export async function POST(request: Request) {
       return { newsText };
     };
 
+    const fetchPeersNode = async (state: typeof AnalysisState.State) => {
+      const sectorLine = state.stockDataText.split("\n").find(l => l.startsWith("Sector:"));
+      const sector = sectorLine?.split(":")[1]?.trim();
+      
+      if (!sector || sector === "—") {
+        return { peersText: "No sector peers available for comparison." };
+      }
+      
+      const SECTOR_PEERS: Record<string, string[]> = {
+        "Technology": ["TCS.NS", "INFY.NS", "WIPRO.NS", "HCLTECH.NS"],
+        "Financial Services": ["HDFCBANK.NS", "ICICIBANK.NS", "KOTAKBANK.NS", "SBIN.NS"],
+        "Consumer Defensive": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS"],
+        "Energy": ["RELIANCE.NS", "ONGC.NS", "BPCL.NS", "IOC.NS"],
+        "Healthcare": ["SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS"],
+      };
+      
+      const peers = SECTOR_PEERS[sector]
+        ?.filter(s => s !== state.symbol)
+        ?.slice(0, 3) || [];
+      
+      if (peers.length === 0) {
+        return { peersText: "No pre-configured peers for this sector." };
+      }
+      
+      const peerData = await Promise.all(
+        peers.map(async (sym) => {
+          const data = await getStocksDetails(sym);
+          if (!data) return null;
+          return `${data.company} (${data.symbol}): P/E ${data.peRatio}, ROE ${data.roe}, Growth ${data.earningsGrowth}, Price ${data.changeFormatted}`;
+        })
+      );
+      
+      return {
+        peersText: "Sector Peers:\n" + peerData.filter(Boolean).join("\n"),
+      };
+    };
+
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
     const analyzeNode = async (state: typeof AnalysisState.State) => {
       if (!llm) {
         return {
@@ -323,6 +365,9 @@ export async function POST(request: Request) {
         "Recent News Headlines:",
         state.newsText,
         "",
+        "Sector Peers for Comparison:",
+        state.peersText,
+        "",
         "Factor these news items into your Risk Assessment and Executive Summary.",
         "",
         "Stock snapshot:",
@@ -330,8 +375,22 @@ export async function POST(request: Request) {
       ].join("\n");
 
       try {
-        const result = await llm.invoke(prompt);
-        let analysisText = parseModelText(result);
+        const stream = await llm.stream(prompt);
+        let analysisText = "";
+        
+        await writer.write(
+          encoder.encode(`data: ${JSON.stringify({ type: "stockData", data: state.stockDataText })}\n\n`)
+        );
+
+        for await (const chunk of stream) {
+          const text = parseModelText(chunk);
+          if (text) {
+            analysisText += text;
+            await writer.write(
+              encoder.encode(`data: ${JSON.stringify({ type: "token", data: text })}\n\n`)
+            );
+          }
+        }
         
         // Remove markdown backticks if the model added them
         analysisText = analysisText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
@@ -364,38 +423,52 @@ export async function POST(request: Request) {
     const graph = new StateGraph(AnalysisState)
       .addNode("fetch_stock", fetchStockNode)
       .addNode("fetch_news", fetchNewsNode)
+      .addNode("fetch_peers", fetchPeersNode)
       .addNode("analyze", analyzeNode)
       .addEdge(START, "fetch_stock")
       .addEdge(START, "fetch_news")
+      .addEdge(START, "fetch_peers")
       .addEdge("fetch_stock", "analyze")
       .addEdge("fetch_news", "analyze")
+      .addEdge("fetch_peers", "analyze")
       .addEdge("analyze", END)
       .compile();
 
-    const result = await graph.invoke({
+    // Run graph without awaiting here, since we return the stream immediately
+    graph.invoke({
       symbol: normalizedSymbol,
       timeframe: timeframe,
       riskProfile: riskProfile,
       stockDataText: "",
       newsText: "",
+      peersText: "",
       analysis: "",
+    }).then(async (result) => {
+      // Save result to cache
+      if (result.analysis) {
+        await AnalysisCacheModel.create({
+          symbol: normalizedSymbol,
+          timeframe,
+          riskProfile,
+          stockData: result.stockDataText,
+          analysis: result.analysis,
+        }).catch(console.error);
+      }
+      
+      await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+      await writer.close();
+    }).catch(async (error) => {
+      console.error("Graph execution failed:", error);
+      await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "error", error: "Failed to generate analysis" })}\n\n`));
+      await writer.close();
     });
 
-    // 2. Save result to cache
-    await AnalysisCacheModel.create({
-      symbol: normalizedSymbol,
-      timeframe,
-      riskProfile,
-      stockData: result.stockDataText,
-      analysis: result.analysis,
-    });
-
-    return NextResponse.json({
-      symbol: normalizedSymbol,
-      timeframe: timeframe,
-      riskProfile: riskProfile,
-      stockData: result.stockDataText,
-      analysis: result.analysis,
+    return new Response(readable, {
+      headers: { 
+        "Content-Type": "text/event-stream", 
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+      },
     });
   } catch (error) {
     console.error("Stock analysis route error:", error);

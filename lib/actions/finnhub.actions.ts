@@ -14,7 +14,7 @@ const yahooFinance = typeof yahooFinanceModule === "function"
   : yahooFinanceModule;
 
 if (yahooFinance && yahooFinance.suppressNotices) {
-  yahooFinance.suppressNotices(['yahooSurvey', 'validation']);
+  yahooFinance.suppressNotices(['yahooSurvey', 'validation', 'ripHistorical']);
 }
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ export const getStocksDetails = cache(async (symbol: string) => {
           "summaryProfile",
         ],
       }),
-      yahooFinance.historical(cleanSymbol, {
+      yahooFinance.chart(cleanSymbol, {
         period1: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180),
         period2: new Date(),
         interval: "1d",
@@ -245,11 +245,12 @@ export const getStocksDetails = cache(async (symbol: string) => {
     if (!quote || !quote.regularMarketPrice) return null;
 
     const companyName = quote.longname || quote.shortname || cleanSymbol;
-    const closes = (Array.isArray(historical) ? historical : [])
+    const chartQuotes = historical?.quotes || [];
+    const closes = chartQuotes
       .map((item: any) => item?.close)
       .filter((value: unknown): value is number => typeof value === "number" && Number.isFinite(value));
 
-    const volumes = (Array.isArray(historical) ? historical : [])
+    const volumes = chartQuotes
       .map((item: any) => item?.volume)
       .filter((value: unknown): value is number => typeof value === "number" && Number.isFinite(value));
 
