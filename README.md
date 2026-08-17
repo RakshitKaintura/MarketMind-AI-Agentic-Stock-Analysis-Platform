@@ -78,13 +78,16 @@ This project is ideal as a portfolio piece because it demonstrates full-stack ca
 
 ## AI Stock Analysis (LangGraph Agentic Workflow)
 
-This project implements an agentic, state-graph workflow for per-symbol AI-driven analysis located at [app/api/stock-analysis/route.ts](app/api/stock-analysis/route.ts). Key points:
+This project implements an advanced agentic, state-graph workflow for per-symbol AI-driven analysis located at [app/api/stock-analysis/route.ts](app/api/stock-analysis/route.ts). The pipeline has been significantly upgraded to provide professional-grade, actionable insights:
 
-- Orchestration: `StateGraph` composes nodes (`fetch_stock` → `analyze`) to create an explainable, stepwise analysis flow.
-- LLM: `ChatGoogleGenerativeAI` (Gemini) is invoked when `GEMINI_API_KEY` is available; otherwise the route falls back to a deterministic analysis generator.
-- Inputs: symbol, timeframe (short|medium|long), and riskProfile (conservative|balanced|aggressive).
-- Output: structured markdown analysis with sections (Executive Summary, Fundamental Analysis, Technical Analysis, Industry Context, Risk, Action Plan, Monitoring Checklist, Confidence).
-- Safety: the pipeline never fabricates missing values — it explicitly calls out unavailable data and includes a caution that the output is informational, not investment advice.
+- **3-Node Orchestration**: A LangGraph `StateGraph` runs `fetch_stock` and `fetch_news` in parallel to gather quantitative metrics and real-time market context, followed by the `analyze` node.
+- **Richer Technical Data**: The `fetch_stock` node computes advanced indicators including EMA (12 & 26), MACD crossovers, Bollinger Bands, and Volume Trends.
+- **Peer & Industry Context**: The AI actively compares the target stock's valuation (P/E, ROE, margins) against top sector peers (e.g., TCS vs INFY) to ground its analysis.
+- **Streaming Structured JSON**: Uses LangChain's `.stream()` API to stream strict, validated JSON directly to the frontend. This creates a ChatGPT-like real-time typing experience, eliminating long loading spinners.
+- **MongoDB Caching**: Analysis results are stored in a MongoDB `AnalysisCache` collection with a 1-hour TTL. Repeat requests load instantly, saving Gemini API costs.
+- **Sector-Aware UI Scoring**: The client-side dashboard dynamically scores the stock using sector-specific P/E benchmarks (e.g., scoring a P/E of 60 differently for Tech vs Banks).
+- **Analysis History & Comparison**: Users can revisit past analyses stored in the database or run side-by-side comparison modes to evaluate two stocks against each other.
+- **Actionable Prompt Engineering**: The Gemini LLM is prompted with strict SEBI-analyst constraints to return precise numbers, trigger levels, and concrete Bull & Bear case scenarios instead of vague advice.
 
 Example request (curl):
 
