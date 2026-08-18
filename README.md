@@ -58,7 +58,7 @@ Investors and traders need a lightweight, fast interface to monitor prices, coll
 
 - A single-pane dashboard for quick stock lookups and visualizations
 - Persistent user watchlists and signup flows
-- Automated background tasks for digest emails and lightweight analytics
+- High-quality AI stock analysis and reporting
 
 This project is ideal as a portfolio piece because it demonstrates full-stack capabilities: authentication, persistent storage, third-party data integration, background processing, and a modern React UI.
 
@@ -69,10 +69,9 @@ This project is ideal as a portfolio piece because it demonstrates full-stack ca
 - **Next.js App Router + TypeScript** — modern SSR/SSG and clean type-safety across the stack.
 - **Persistent Watchlist (MongoDB + Mongoose)** — users can save & manage watchlists stored in MongoDB.
 - **Auth with Better Auth** — email/password auth with `better-auth` and cookie-based session handling.
-- **Trading UIs** — embedded TradingView widgets and TickerTape components for interactive charts.
+- **Real-Time Trading UIs** — embedded TradingView widgets and TickerTape components for interactive, real-time market charts.
 - **AI Stock Analysis (LangGraph + Gemini)** — agentic analysis pipeline using `@langchain/langgraph` and `@langchain/google-genai` to orchestrate data-fetch → LLM analysis nodes.
-- **Background Jobs (Inngest)** — async workflows for welcome emails and daily news summaries.
-- **Email Notifications (Nodemailer)** — transactional emails for signup & digests.
+- **Market Data APIs** — Aggregates data from Yahoo Finance and Finnhub for comprehensive financial metrics and live news.
 
 ---
 
@@ -81,8 +80,10 @@ This project is ideal as a portfolio piece because it demonstrates full-stack ca
 This project implements an advanced agentic, state-graph workflow for per-symbol AI-driven analysis located at [app/api/stock-analysis/route.ts](app/api/stock-analysis/route.ts). The pipeline has been significantly upgraded to provide professional-grade, actionable insights:
 
 - **3-Node Orchestration**: A LangGraph `StateGraph` runs `fetch_stock` and `fetch_news` in parallel to gather quantitative metrics and real-time market context, followed by the `analyze` node.
-- **Richer Technical Data**: The `fetch_stock` node computes advanced indicators including EMA (12 & 26), MACD crossovers, Bollinger Bands, and Volume Trends.
+- **News Decoupling**: The AI relies purely on technical/fundamental data, while real-time news is streamed to the client separately to prevent context hallucination.
+- **Richer Technical Data**: The `fetch_stock` node computes advanced indicators including EMA (12 & 26), MACD crossovers, Bollinger Bands, and Volume Trends (modularized in `lib/utils/technical-indicators.ts`).
 - **Peer & Industry Context**: The AI actively compares the target stock's valuation (P/E, ROE, margins) against top sector peers (e.g., TCS vs INFY) to ground its analysis.
+- **Batch Query Optimizations**: Heavy use of `Promise.all` and Yahoo Finance's batch API (`yahooFinance.quote([symbols])`) to eliminate network request waterfalls and fetch fallback/search data in a single network pass.
 - **Streaming Structured JSON**: Uses LangChain's `.stream()` API to stream strict, validated JSON directly to the frontend. This creates a ChatGPT-like real-time typing experience, eliminating long loading spinners.
 - **MongoDB Caching**: Analysis results are stored in a MongoDB `AnalysisCache` collection with a 1-hour TTL. Repeat requests load instantly, saving Gemini API costs.
 - **Sector-Aware UI Scoring**: The client-side dashboard dynamically scores the stock using sector-specific P/E benchmarks (e.g., scoring a P/E of 60 differently for Tech vs Banks).
@@ -114,14 +115,12 @@ Frontend
 Backend
 
 - Node.js (Next.js API routes)
-- Inngest (background functions)
 - `better-auth` for authentication
 
 Database / Tools
 
 - MongoDB (mongoose)
-- Nodemailer (SMTP)
-- Yahoo Finance / Gemini AI (integration points)
+- Yahoo Finance / Finnhub / Gemini AI (integration points)
 - ESLint, TypeScript, Turbopack
 
 ---
@@ -133,7 +132,6 @@ Database / Tools
 - Node.js 18+ (or latest LTS)
 - npm (or yarn/pnpm)
 - A running MongoDB instance (Atlas or local)
-- SMTP credentials (for sending email)
 
 ### Installation
 
@@ -156,12 +154,8 @@ MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.example.mongodb.net/stock_market
 BETTER_AUTH_SECRET=replace_me_with_a_strong_random_secret
 BETTER_AUTH_URL=http://localhost:3000
 
-# Gemini / AI key used by Inngest AI integrations
+# Gemini API key used for Stock Analysis
 GEMINI_API_KEY=replace_with_gemini_api_key
-
-# Nodemailer SMTP
-NODEMAILER_EMAIL=you@example.com
-NODEMAILER_PASSWORD=supersecretpassword
 
 # Optional: NODE_ENV (development|production)
 NODE_ENV=development
@@ -191,16 +185,15 @@ Top-level layout (trimmed):
 
 - `app/` — Next.js App Router pages and layouts
 - `components/` — UI components and widgets (TradingView, TickerTape, Watchlist UI)
-- `lib/` — client libraries, API wrappers, actions, Inngest functions, and nodemailer templates
+- `lib/` — client libraries, API wrappers, and server actions
 - `database/` — MongoDB connection (`mongoose.ts`) and models (`models/*.ts`)
 - `hooks/` — React hooks (`useDebounce`, TradingView hook)
-- `api/` — server API routes used by client pages (`/api/news`, `/api/stock-analysis`, `/api/inngest`)
+- `api/` — server API routes used by client pages (`/api/news`, `/api/stock-analysis`)
 
 Example important files:
 
 - [database/mongoose.ts](database/mongoose.ts) — MongoDB connection helper
 - [lib/better-auth/auth.ts](lib/better-auth/auth.ts) — authentication setup
-- [lib/inngest/client.ts](lib/inngest/client.ts) — background job client
 - [components/WatchlistTable.tsx](components/WatchlistTable.tsx) — watchlist UI
 
 ---

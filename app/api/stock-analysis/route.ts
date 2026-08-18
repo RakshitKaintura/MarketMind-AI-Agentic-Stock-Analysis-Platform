@@ -178,6 +178,7 @@ export async function POST(request: Request) {
         timeframe: cached.timeframe,
         riskProfile: cached.riskProfile,
         stockData: cached.stockData,
+        newsData: cached.newsData,
         analysis: cached.analysis,
         cached: true,
       });
@@ -362,13 +363,10 @@ export async function POST(request: Request) {
         "",
         "IMPORTANT: Be specific. Replace generic phrases like 'monitor the stock' with specific metrics like 'Review if RSI crosses above 70 or if quarterly EPS growth drops below 10%.'",
         "",
-        "Recent News Headlines:",
-        state.newsText,
-        "",
         "Sector Peers for Comparison:",
         state.peersText,
         "",
-        "Factor these news items into your Risk Assessment and Executive Summary.",
+        "Factor the Sector Peers into your Industry Context and Risk Assessment.",
         "",
         "Stock snapshot:",
         state.stockDataText,
@@ -381,6 +379,12 @@ export async function POST(request: Request) {
         await writer.write(
           encoder.encode(`data: ${JSON.stringify({ type: "stockData", data: state.stockDataText })}\n\n`)
         );
+        
+        if (state.newsText) {
+          await writer.write(
+            encoder.encode(`data: ${JSON.stringify({ type: "newsData", data: state.newsText })}\n\n`)
+          );
+        }
 
         for await (const chunk of stream) {
           const text = parseModelText(chunk);
@@ -451,6 +455,7 @@ export async function POST(request: Request) {
           timeframe,
           riskProfile,
           stockData: result.stockDataText,
+          newsData: result.newsText,
           analysis: result.analysis,
         }).catch(console.error);
       }

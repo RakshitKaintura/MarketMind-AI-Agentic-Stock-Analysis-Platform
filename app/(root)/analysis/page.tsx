@@ -10,6 +10,7 @@ type AnalysisResponse = {
   timeframe: string;
   riskProfile: string;
   stockData: string;
+  newsData?: string;
   analysis: string;
   error?: string;
 };
@@ -580,6 +581,41 @@ function AnalysisResultView({ result, error, loading }: { result: AnalysisRespon
           )}
         </div>
       </div>
+
+      {/* Latest Market News Block */}
+      {result.newsData && (
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="px-6 py-4 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent">
+            <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#0FEDBE]" />
+              Latest Market News Context
+            </h3>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3">
+              {result.newsData.split('\n').filter(Boolean).map((newsLine: string, idx: number) => {
+                const cleanLine = newsLine.replace(/^\d+\.\s*/, '');
+                const sourceMatch = cleanLine.match(/^\[(.*?)\]\s*(.*)$/);
+                let source = "Market News";
+                let headline = cleanLine;
+                if (sourceMatch) {
+                  source = sourceMatch[1];
+                  headline = sourceMatch[2];
+                }
+                return (
+                  <div key={idx} className="group rounded-xl border border-white/5 bg-black/20 p-4 hover:bg-white/5 transition-colors">
+                    <span className="text-[10px] uppercase tracking-widest text-[#0FEDBE]/80 mb-1.5 block">{source}</span>
+                    <p className="text-sm leading-relaxed text-white/80 group-hover:text-white transition-colors">{headline}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 rounded-lg border border-[#FDD458]/30 bg-[#FDD458]/10 px-4 py-3">
+              <p className="text-xs font-medium text-[#FDD458]">ℹ️ Notice: This news feed is provided for your context only and was deliberately excluded from the AI's mathematical analysis.</p>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -669,6 +705,7 @@ export default function AnalysisPage() {
         timeframe,
         riskProfile,
         stockData: "",
+        newsData: "",
         analysis: "",
       });
 
@@ -688,6 +725,8 @@ export default function AnalysisPage() {
               if (data.type === "stockData") {
                 stockDataText = data.data;
                 setResult(prev => prev ? { ...prev, stockData: stockDataText } : prev);
+              } else if (data.type === "newsData") {
+                setResult(prev => prev ? { ...prev, newsData: data.data } : prev);
               } else if (data.type === "token") {
                 analysisText += data.data;
                 setResult(prev => prev ? { ...prev, analysis: analysisText } : prev);

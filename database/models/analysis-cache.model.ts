@@ -5,6 +5,7 @@ interface AnalysisCache {
   timeframe: string;
   riskProfile: string;
   stockData: string;
+  newsData?: string;
   analysis: string;
   createdAt: Date;
 }
@@ -14,6 +15,7 @@ const AnalysisCacheSchema = new Schema<AnalysisCache>({
   timeframe: { type: String, required: true },
   riskProfile: { type: String, required: true },
   stockData: { type: String, required: true },
+  newsData: { type: String, required: false },
   analysis: { type: String, required: true },
   createdAt: { type: Date, default: Date.now, expires: 3600 }, // Auto-delete after 1 hour
 });
