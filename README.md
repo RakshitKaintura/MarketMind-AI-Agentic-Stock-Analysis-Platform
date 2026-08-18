@@ -60,7 +60,7 @@ Investors and traders need a lightweight, fast interface to monitor prices, coll
 - Persistent user watchlists and signup flows
 - High-quality AI stock analysis and reporting
 
-This project is ideal as a portfolio piece because it demonstrates full-stack capabilities: authentication, persistent storage, third-party data integration, background processing, and a modern React UI.
+This project is a powerful demonstration of modern full-stack capabilities: secure authentication, persistent storage, real-time data integration, agentic AI workflows, and a highly responsive React UI.
 
 ---
 
@@ -71,7 +71,7 @@ This project is ideal as a portfolio piece because it demonstrates full-stack ca
 - **Auth with Better Auth** — email/password auth with `better-auth` and cookie-based session handling.
 - **Real-Time Trading UIs** — embedded TradingView widgets and TickerTape components for interactive, real-time market charts.
 - **AI Stock Analysis (LangGraph + Gemini)** — agentic analysis pipeline using `@langchain/langgraph` and `@langchain/google-genai` to orchestrate data-fetch → LLM analysis nodes.
-- **Market Data APIs** — Aggregates data from Yahoo Finance and Finnhub for comprehensive financial metrics and live news.
+- **Market Data APIs** — Aggregates real-time data from Yahoo Finance and Google News for comprehensive financial metrics, technical indicators, and live market context.
 
 ---
 
@@ -119,9 +119,9 @@ Backend
 
 Database / Tools
 
-- MongoDB (mongoose)
-- Yahoo Finance / Finnhub / Gemini AI (integration points)
-- ESLint, TypeScript, Turbopack
+- MongoDB (Mongoose)
+- Yahoo Finance / Google News RSS / Gemini AI (integration points)
+- ESLint, TypeScript, Tailwind CSS, Turbopack
 
 ---
 
