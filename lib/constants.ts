@@ -351,33 +351,33 @@ export const BASELINE_WIDGET_CONFIG = (symbol: string) => ({
 
 export const TECHNICAL_ANALYSIS_WIDGET_CONFIG = (symbol: string) => ({
   symbol: formatTvSymbol(symbol),
-    colorTheme: 'dark',
-    isTransparent: 'true',
-    locale: 'en',
-    width: '100%',
-    height: 400,
-    interval: '1h',
-    largeChartUrl: '',
+  colorTheme: 'dark',
+  isTransparent: true,
+  locale: 'en',
+  width: '100%',
+  height: 400,
+  interval: '1h',
+  largeChartUrl: '',
 });
 
 export const COMPANY_PROFILE_WIDGET_CONFIG = (symbol: string) => ({
-   symbol: formatTvSymbol(symbol),
-    colorTheme: 'dark',
-    isTransparent: 'true',
-    locale: 'en',
-    width: '100%',
-    height: 440,
+  symbol: formatTvSymbol(symbol),
+  colorTheme: 'dark',
+  isTransparent: true,
+  locale: 'en',
+  width: '100%',
+  height: 440,
 });
 
 export const COMPANY_FINANCIALS_WIDGET_CONFIG = (symbol: string) => ({
-   symbol: formatTvSymbol(symbol),
-    colorTheme: 'dark',
-    isTransparent: 'true',
-    locale: 'en',
-    width: '100%',
-    height: 464,
-    displayMode: 'regular',
-    largeChartUrl: '',
+  symbol: formatTvSymbol(symbol),
+  colorTheme: 'dark',
+  isTransparent: true,
+  locale: 'en',
+  width: '100%',
+  height: 464,
+  displayMode: 'regular',
+  largeChartUrl: '',
 });
 
 export const NO_MARKET_NEWS =

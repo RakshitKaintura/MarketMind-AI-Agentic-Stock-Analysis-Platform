@@ -11,7 +11,7 @@ import {
 const SelectField = ({ name, label, placeholder, options, control, error, required = false }: SelectFieldProps) => {
     return (
         <div className="space-y-2">
-            <Label htmlFor={name} className="form-label">{label}</Label>
+            <Label htmlFor={name} className="text-[#A1A1AA] text-sm font-medium">{label}</Label>
 
             <Controller
                 name={name}
@@ -21,12 +21,12 @@ const SelectField = ({ name, label, placeholder, options, control, error, requir
                 }}
                 render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger className="select-trigger">
+                        <SelectTrigger className="w-full h-11 px-3 py-3 text-sm border border-[#27272A] bg-[#0A0A0A] text-white rounded-lg focus:border-[#3F3F46] focus:ring-0">
                             <SelectValue placeholder={placeholder} />
                         </SelectTrigger>
-                        <SelectContent className="bg-gray-800 border-gray-600 text-white">
+                        <SelectContent className="bg-[#111111] border border-[#27272A] text-white rounded-lg">
                             {options.map((option) => (
-                                <SelectItem value={option.value} key={option.value} className="focus:bg-gray-600 focus:text-white">
+                                <SelectItem value={option.value} key={option.value} className="text-[#A1A1AA] hover:text-white focus:bg-[#161616] focus:text-white cursor-pointer">
                                     {option.label}
                                 </SelectItem>
                             ))}

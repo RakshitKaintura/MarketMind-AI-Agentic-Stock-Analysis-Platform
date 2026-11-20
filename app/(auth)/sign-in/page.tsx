@@ -37,7 +37,10 @@ const SignIn = () => {
 
     return (
         <>
-            <h1 className="form-title">Welcome back</h1>
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-white tracking-tight">Welcome back</h1>
+                <p className="mt-2 text-sm text-[#71717A]">Sign in to your MarketMind account</p>
+            </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                 <InputField
@@ -65,8 +68,12 @@ const SignIn = () => {
                     validation={{ required: 'Password is required', minLength: 8 }}
                 />
 
-                <Button type="submit" disabled={isSubmitting} className="yellow-btn w-full mt-5">
-                    {isSubmitting ? 'Signing In' : 'Sign In'}
+                <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full h-11 mt-5 bg-white text-black hover:bg-[#E5E5E5] font-semibold rounded-lg transition-colors duration-200 disabled:opacity-50 cursor-pointer"
+                >
+                    {isSubmitting ? 'Signing In…' : 'Sign In'}
                 </Button>
 
                 <FooterLink text="Don't have an account?" linkText="Create an account" href="/sign-up" />

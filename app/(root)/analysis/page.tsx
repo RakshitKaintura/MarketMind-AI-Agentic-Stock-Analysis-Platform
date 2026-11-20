@@ -2,15 +2,73 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import { saveAnalysisToHistory, getAnalysisHistory } from "@/lib/actions/analysis.actions";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { History, LayoutPanelLeft, TrendingUp, ShieldAlert, BarChart3, FileText, Crosshair, Users, Activity, ChevronRight, Target } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import TradingViewWidget from "@/components/TradingViewWidget";
+import {
+  CANDLE_CHART_WIDGET_CONFIG,
+  TECHNICAL_ANALYSIS_WIDGET_CONFIG,
+  COMPANY_PROFILE_WIDGET_CONFIG,
+  COMPANY_FINANCIALS_WIDGET_CONFIG,
+} from "@/lib/constants";
+import {
+  ConvictionGauge,
+  PriceTargetHorizon,
+  SpecialistConsensus,
+  RsiMeter,
+  MovingAverageRibbon,
+  BollingerRangeMeter,
+  TrendStrengthMeter,
+  ValuationBenchmarkBar,
+  RiskMatrix,
+  BullBearScenarios,
+  FactorRadarChart,
+  MovingAverageExtensionChart,
+  RechartsTargetTrajectory,
+} from "./AnalysisVisuals";
+import { AgentSwarmFlowchart } from "./AgentSwarmFlowchart";
+import {
+  History,
+  LayoutPanelLeft,
+  TrendingUp,
+  ShieldAlert,
+  BarChart3,
+  FileText,
+  Crosshair,
+  Users,
+  Activity,
+  ChevronRight,
+  Target,
+  LineChart,
+  Compass,
+  CheckCircle2,
+  AlertTriangle,
+  Zap,
+  Layers,
+  Sparkles,
+  Copy,
+  Printer,
+  Search,
+  ExternalLink,
+  ShieldCheck,
+  Scale,
+  SlidersHorizontal,
+} from "lucide-react";
+import { toast } from "sonner";
 
 type AnalysisResponse = {
   symbol: string;
   timeframe: string;
   riskProfile: string;
   stockData: string;
-  newsData?: string;
   analysis: string;
   error?: string;
 };
@@ -41,9 +99,39 @@ type AnalysisData = {
   bullCase?: string;
   bearCase?: string;
   fallbackReason?: string;
+  priceTargets?: {
+    shortTerm?: { price: number; timeframe?: string };
+    mediumTerm?: { price: number; timeframe?: string };
+    longTerm?: { price: number; timeframe?: string };
+  };
+  catalysts?: string[];
+  engineV2?: {
+    version?: string;
+    specialistReports?: {
+      technical?: any;
+      fundamental?: any;
+      sentiment?: any;
+      risk?: any;
+      peerComparison?: any;
+    };
+    deterministicScoring?: any;
+    computedIndicatorCount?: number;
+    indicatorsComputed?: string[];
+  };
 };
 
 const defaultResult: AnalysisResponse | null = null;
+const scriptUrl = "https://s3.tradingview.com/external-embedding/embed-widget-";
+
+const POPULAR_TICKERS = [
+  "RELIANCE.NS",
+  "TCS.NS",
+  "HDFCBANK.NS",
+  "INFY.NS",
+  "ICICIBANK.NS",
+  "LT.NS",
+  "BHARTIARTL.NS",
+];
 
 const parseSnapshot = (snapshot: string) => {
   return snapshot
@@ -59,17 +147,6 @@ const parseSnapshot = (snapshot: string) => {
     });
 };
 
-const getSectionPriority = (title: string) => {
-  const normalized = title.toLowerCase();
-  if (normalized.includes("risk") || normalized.includes("action") || normalized.includes("bear") || normalized.includes("bull")) {
-    return { label: "High Priority", className: "text-[#FF8A4C] bg-[#FF8A4C]/10 border-[#FF8A4C]/20" };
-  }
-  if (normalized.includes("executive") || normalized.includes("confidence")) {
-    return { label: "Core", className: "text-[#0FEDBE] bg-[#0FEDBE]/10 border-[#0FEDBE]/20" };
-  }
-  return { label: "Context", className: "text-[#FDD458] bg-[#FDD458]/10 border-[#FDD458]/20" };
-};
-
 const getValueColorClass = (value: string) => {
   if (/(^|\s)\+\d|\+\d|\+\s*\d/.test(value) || /\bup\b/i.test(value)) {
     return "text-[#0FEDBE]";
@@ -77,7 +154,7 @@ const getValueColorClass = (value: string) => {
   if (/(^|\s)-\d|-\d/.test(value) || /\bdown\b/i.test(value)) {
     return "text-[#FF495B]";
   }
-  return "text-white/90";
+  return "text-zinc-200";
 };
 
 const parseNumericValue = (value?: string) => {
@@ -99,22 +176,30 @@ const parsePartialJson = (str: string) => {
     return JSON.parse(str);
   } catch (e) {
     let fixedStr = str.trim();
-    if (fixedStr.endsWith(',')) fixedStr = fixedStr.slice(0, -1);
-    
-    let openBraces = 0, openBrackets = 0, inString = false;
+    if (fixedStr.endsWith(",")) fixedStr = fixedStr.slice(0, -1);
+
+    let openBraces = 0,
+      openBrackets = 0,
+      inString = false;
     for (let i = 0; i < fixedStr.length; i++) {
-      if (fixedStr[i] === '"' && fixedStr[i-1] !== '\\') inString = !inString;
+      if (fixedStr[i] === '"' && fixedStr[i - 1] !== "\\") inString = !inString;
       if (!inString) {
-        if (fixedStr[i] === '{') openBraces++;
-        if (fixedStr[i] === '}') openBraces--;
-        if (fixedStr[i] === '[') openBrackets++;
-        if (fixedStr[i] === ']') openBrackets--;
+        if (fixedStr[i] === "{") openBraces++;
+        if (fixedStr[i] === "}") openBraces--;
+        if (fixedStr[i] === "[") openBrackets++;
+        if (fixedStr[i] === "]") openBrackets--;
       }
     }
     if (inString) fixedStr += '"';
-    while (openBrackets > 0) { fixedStr += ']'; openBrackets--; }
-    while (openBraces > 0) { fixedStr += '}'; openBraces--; }
-    
+    while (openBrackets > 0) {
+      fixedStr += "]";
+      openBrackets--;
+    }
+    while (openBraces > 0) {
+      fixedStr += "}";
+      openBraces--;
+    }
+
     try {
       return JSON.parse(fixedStr);
     } catch {
@@ -123,37 +208,44 @@ const parsePartialJson = (str: string) => {
   }
 };
 
-function AnalysisResultView({ result, error, loading }: { result: AnalysisResponse | null; error: string; loading: boolean }) {
+function AnalysisResultView({
+  result,
+  error,
+  loading,
+  symbol,
+}: {
+  result: AnalysisResponse | null;
+  error: string;
+  loading: boolean;
+  symbol: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
   if (error) {
     return (
-      <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-sm text-red-300 shadow-2xl backdrop-blur-md animate-in fade-in">
-        {error}
+      <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-300 shadow-xl backdrop-blur-md animate-in fade-in">
+        <div className="flex items-center gap-2 mb-2 font-bold text-rose-400">
+          <AlertTriangle className="w-5 h-5" />
+          <span>Institutional Pipeline Exception</span>
+        </div>
+        <p className="leading-relaxed">{error}</p>
       </div>
     );
   }
-  
+
+  if (loading) {
+    return <AgentSwarmFlowchart symbol={symbol} />;
+  }
+
   if (!result) {
-    if (loading) {
-      return (
-        <div className="min-h-[600px] flex flex-col items-center justify-center rounded-2xl border border-[#d4a017]/20 bg-[#d4a017]/5 p-8 text-center backdrop-blur-md animate-in fade-in shadow-2xl">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-full blur-xl bg-[#d4a017]/30 animate-pulse" />
-            <Activity className="w-12 h-12 text-[#d4a017] relative z-10 animate-bounce" />
-          </div>
-          <h3 className="mt-6 text-lg font-bold text-white tracking-wide">Synthesizing Market Intelligence</h3>
-          <p className="mt-2 text-sm text-white/50 animate-pulse max-w-sm">
-            Fetching live quotes, calculating technical indicators, parsing recent news, and analyzing peer context...
-          </p>
-        </div>
-      );
-    }
     return (
-      <div className="min-h-[600px] flex flex-col items-center justify-center rounded-2xl border border-white/5 bg-white/5 p-8 text-center backdrop-blur-md shadow-2xl">
-        <div className="p-4 rounded-full bg-white/5 mb-4">
-          <Crosshair className="w-8 h-8 text-white/20" />
+      <div className="min-h-[640px] flex flex-col items-center justify-center rounded-xl border border-[#27272A] bg-[#0A0A0A] p-8 text-center shadow-xl">
+        <div className="p-4 rounded-full bg-[#111111] border border-[#27272A] mb-4">
+          <Crosshair className="w-8 h-8 text-[#71717A]" />
         </div>
-        <p className="text-sm font-medium text-white/40 tracking-wide">
-          Ready to deploy AI analysis. Adjust parameters and initialize.
+        <h4 className="text-sm font-bold text-white tracking-wide">Terminal Ready</h4>
+        <p className="text-xs text-[#71717A] tracking-wide mt-1 max-w-sm">
+          Select an asset ticker and execution horizon on the command console above to deploy the AI agentic analysis swarm.
         </p>
       </div>
     );
@@ -164,31 +256,43 @@ function AnalysisResultView({ result, error, loading }: { result: AnalysisRespon
   if (result.analysis) {
     analysisData = parsePartialJson(result.analysis);
   }
-  
+
   const metricMap = buildMetricMap(snapshotRows);
   const currentPrice = parseNumericValue(metricMap["current price"]);
-  const avg50 = parseNumericValue(metricMap["50d avg"]);
-  const avg200 = parseNumericValue(metricMap["200d avg"]);
+  const avg50 = parseNumericValue(metricMap["50d avg"] || metricMap["sma 50"]);
+  const avg200 = parseNumericValue(metricMap["200d avg"] || metricMap["sma 200"]);
+  const sma20 = parseNumericValue(metricMap["sma 20"]);
   const peRatio = parseNumericValue(metricMap["p/e ratio"]);
+  const pbRatio = parseNumericValue(metricMap["p/b ratio"]);
+  const roe = parseNumericValue(metricMap["roe"]);
   const rsi = parseNumericValue(metricMap["rsi (14)"]);
+  const adx = parseNumericValue(metricMap["adx"]);
   const revenueGrowth = parseNumericValue(metricMap["revenue growth"]);
   const earningsGrowth = parseNumericValue(metricMap["earnings growth"]);
   const debtToEquity = parseNumericValue(metricMap["debt to equity"]);
   const change = parseNumericValue(metricMap["change"]);
+  const analystTarget = parseNumericValue(metricMap["analyst target price"]);
+  const supertrend = metricMap["supertrend"];
+  const macdSignal = metricMap["macd signal"];
+  const bollingerBandsRaw = metricMap["bollinger bands"];
+
+  const range52Match = metricMap["52w range"]?.match(/₹?([0-9.]+)\s*-\s*₹?([0-9.]+)/);
+  const fiftyTwoWeekLow = range52Match ? parseFloat(range52Match[1]) : null;
+  const fiftyTwoWeekHigh = range52Match ? parseFloat(range52Match[2]) : null;
 
   const SECTOR_PE_BENCHMARKS: Record<string, { low: number; fair: number; high: number }> = {
-    "Technology":          { low: 20, fair: 35, high: 55 },
-    "Financial Services":  { low: 10, fair: 18, high: 28 },
-    "Consumer Defensive":  { low: 25, fair: 40, high: 60 },
-    "Healthcare":          { low: 20, fair: 30, high: 50 },
-    "Energy":              { low: 8,  fair: 15, high: 25 },
-    "Industrials":         { low: 15, fair: 25, high: 40 },
-    "default":             { low: 15, fair: 25, high: 45 },
+    Technology: { low: 20, fair: 35, high: 55 },
+    "Financial Services": { low: 10, fair: 18, high: 28 },
+    "Consumer Defensive": { low: 25, fair: 40, high: 60 },
+    Healthcare: { low: 20, fair: 30, high: 50 },
+    Energy: { low: 8, fair: 15, high: 25 },
+    Industrials: { low: 15, fair: 25, high: 40 },
+    default: { low: 15, fair: 25, high: 45 },
   };
-  
+
   const sector = metricMap["sector"] || "default";
   const benchmark = SECTOR_PE_BENCHMARKS[sector] || SECTOR_PE_BENCHMARKS["default"];
-  
+
   let valuationScore = 50;
   if (peRatio !== null) {
     if (peRatio <= benchmark.low) valuationScore += 28;
@@ -236,7 +340,7 @@ function AnalysisResultView({ result, error, loading }: { result: AnalysisRespon
     else if (earningsGrowth >= 8) fundamentalsScore += 12;
     else if (earningsGrowth > 0) fundamentalsScore += 6;
     else if (earningsGrowth <= -10) fundamentalsScore -= 20;
-    else fundamentalsScore -= 12;
+    else fundamentalsScore -= 8;
   }
   if (debtToEquity !== null) {
     if (debtToEquity <= 1) fundamentalsScore += 12;
@@ -249,384 +353,612 @@ function AnalysisResultView({ result, error, loading }: { result: AnalysisRespon
   trendScore = clampScore(trendScore);
   fundamentalsScore = clampScore(fundamentalsScore);
 
-  const overallConfidence = clampScore(
-    valuationScore * 0.25 + momentumScore * 0.25 + trendScore * 0.2 + fundamentalsScore * 0.3
-  );
+  const serverScore = analysisData?.engineV2?.deterministicScoring?.overallScore;
+  const overallConfidence =
+    serverScore !== undefined
+      ? serverScore
+      : clampScore(
+          valuationScore * 0.25 +
+            momentumScore * 0.25 +
+            trendScore * 0.2 +
+            fundamentalsScore * 0.3
+        );
 
   let buyThreshold = 70;
   let accumulateThreshold = 55;
 
   if (peRatio !== null) {
-    if (peRatio > benchmark.high + 5) { buyThreshold += 5; accumulateThreshold += 3; }
-    if (peRatio > benchmark.high + 20) { buyThreshold += 5; accumulateThreshold += 4; }
+    if (peRatio > benchmark.high + 5) {
+      buyThreshold += 5;
+      accumulateThreshold += 3;
+    }
+    if (peRatio > benchmark.high + 20) {
+      buyThreshold += 5;
+      accumulateThreshold += 4;
+    }
   }
   if (earningsGrowth !== null) {
-    if (earningsGrowth >= 15) { buyThreshold -= 4; accumulateThreshold -= 3; }
-    if (earningsGrowth >= 25) { buyThreshold -= 3; accumulateThreshold -= 2; }
+    if (earningsGrowth >= 15) {
+      buyThreshold -= 4;
+      accumulateThreshold -= 3;
+    }
+    if (earningsGrowth >= 25) {
+      buyThreshold -= 3;
+      accumulateThreshold -= 2;
+    }
   }
 
   buyThreshold = Math.max(62, buyThreshold);
   accumulateThreshold = Math.max(50, Math.min(buyThreshold - 8, accumulateThreshold));
 
+  const serverDecision = analysisData?.engineV2?.deterministicScoring?.decision;
   const decision =
-    overallConfidence >= buyThreshold
+    serverDecision ||
+    (overallConfidence >= buyThreshold
       ? "Buy Now (Staggered Entries)"
       : overallConfidence >= accumulateThreshold
       ? "Accumulate Slowly"
-      : "Wait For Better Price";
-
-  const decisionClass =
-    overallConfidence >= buyThreshold ? "text-[#0FEDBE]"
-      : overallConfidence >= accumulateThreshold ? "text-[#FDD458]"
-      : "text-[#FF495B]";
+      : "Wait For Better Price");
 
   const thresholdAdjustments: string[] = [];
-  if (peRatio !== null && peRatio > benchmark.high + 5) thresholdAdjustments.push("Higher valuation raised entry thresholds");
-  if (peRatio !== null && peRatio > benchmark.high + 20) thresholdAdjustments.push("Very high P/E requires extra caution");
-  if (earningsGrowth !== null && earningsGrowth >= 15) thresholdAdjustments.push("Strong earnings momentum lowered timing thresholds");
-  if (earningsGrowth !== null && earningsGrowth >= 25) thresholdAdjustments.push("Very strong earnings growth added extra flexibility");
+  if (peRatio !== null && peRatio > benchmark.high + 5)
+    thresholdAdjustments.push("Higher valuation multiple raised entry threshold");
+  if (peRatio !== null && peRatio > benchmark.high + 20)
+    thresholdAdjustments.push("Elevated P/E demands wider margin of safety");
+  if (earningsGrowth !== null && earningsGrowth >= 15)
+    thresholdAdjustments.push("Strong earnings momentum lowered timing hurdle");
+  if (earningsGrowth !== null && earningsGrowth >= 25)
+    thresholdAdjustments.push("Exceptional earnings expansion added DCA flexibility");
 
-  const scorePillClass = (score: number) =>
-    score >= 70 ? "text-[#0FEDBE] bg-[#0FEDBE]/10 border-[#0FEDBE]/20"
-      : score >= 55 ? "text-[#FDD458] bg-[#FDD458]/10 border-[#FDD458]/20"
-      : "text-[#FF495B] bg-[#FF495B]/10 border-[#FF495B]/20";
+  const supportLevel =
+    analysisData?.engineV2?.specialistReports?.technical?.supportLevel ||
+    (currentPrice ? currentPrice * 0.94 : null);
+
+  const copyBrief = () => {
+    const text = `MarketMind Institutional Brief: ${result.symbol}
+Conviction Score: ${overallConfidence}/100 | Stance: ${decision}
+Current Price: ₹${currentPrice?.toFixed(2) || "N/A"}
+Support Floor: ₹${supportLevel?.toFixed(2) || "N/A"}
+Summary: ${analysisData?.executiveSummary || "N/A"}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Institutional brief copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <section className="space-y-6 w-full animate-in fade-in duration-500">
-      {/* Confidence Score Panel */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden shadow-2xl">
-        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-white/5 to-transparent">
-          <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-[#d4a017]" />
-            Confidence Metrics
-          </h3>
-          <span className="text-xs font-mono text-white/50">{result.symbol}</span>
+      {/* 1. INSTITUTIONAL ASSET HEADER BAR */}
+      <div className="rounded-xl border border-[#27272A] bg-[#0A0A0A] p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="h-12 w-12 rounded-lg bg-[#111111] border border-[#27272A] flex items-center justify-center font-black text-lg text-white font-mono shadow-inner">
+            {result.symbol.slice(0, 2)}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-white font-mono tracking-tight">{result.symbol}</h2>
+              <Badge variant="outline" className="text-[10px] font-mono border-[#27272A] text-[#71717A]">
+                {metricMap["exchange"] || "NSE/BSE"}
+              </Badge>
+              <Badge variant="secondary" className="text-[10px] font-mono">
+                {metricMap["sector"] || "Equity"}
+              </Badge>
+            </div>
+            <p className="text-xs text-[#71717A] mt-0.5 font-medium">
+              {metricMap["company"] || result.symbol} • {metricMap["industry"] || "Large Cap"}
+            </p>
+          </div>
         </div>
-        <div className="p-6">
-          {snapshotRows.length > 0 ? (
-            <div className="space-y-6">
-              <div className="relative overflow-hidden rounded-xl border border-[#d4a017]/20 bg-gradient-to-br from-[#d4a017]/10 to-transparent p-6">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Activity className="w-24 h-24" />
-                </div>
-                <div className="relative z-10">
-                  <p className="text-xs uppercase tracking-widest text-[#d4a017]/80 font-semibold mb-2">AI Conviction Score</p>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-5xl font-black tracking-tighter text-white drop-shadow-md">{overallConfidence}</p>
-                    <p className="text-xl text-white/40">/100</p>
+
+        <div className="flex items-center gap-6">
+          {currentPrice && (
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[#71717A] block">
+                Last Traded Price
+              </span>
+              <div className="flex items-baseline gap-2 justify-end">
+                <span className="text-2xl font-bold font-mono text-white">
+                  ₹{currentPrice.toFixed(2)}
+                </span>
+                {change !== null && (
+                  <span
+                    className={`text-xs font-mono font-bold flex items-center ${
+                      change >= 0 ? "text-[#0FEDBE]" : "text-[#FF495B]"
+                    }`}
+                  >
+                    {change >= 0 ? "+" : ""}
+                    {change.toFixed(2)}%
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 pl-4 border-l border-[#27272A]">
+            <button
+              onClick={copyBrief}
+              title="Copy Institutional Brief"
+              className="p-2 rounded-lg border border-[#27272A] bg-[#111111] text-[#71717A] hover:text-white hover:border-[#3F3F46] transition-all"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. TABBED INSTITUTIONAL WORKSPACE */}
+      <Tabs defaultValue="overview" className="w-full space-y-6">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full bg-[#0A0A0A] border border-[#27272A] rounded-xl p-1 shadow-lg">
+          <TabsTrigger
+            value="overview"
+            className="rounded-lg py-2 text-xs font-semibold transition-all data-[state=active]:bg-[#161616] data-[state=active]:text-white text-[#71717A]"
+          >
+            <Activity className="w-3.5 h-3.5 mr-1.5 shrink-0 text-[#0FEDBE]" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger
+            value="technicals"
+            className="rounded-lg py-2 text-xs font-semibold transition-all data-[state=active]:bg-[#161616] data-[state=active]:text-white text-[#71717A]"
+          >
+            <LineChart className="w-3.5 h-3.5 mr-1.5 shrink-0 text-white" />
+            Technicals & Chart
+          </TabsTrigger>
+          <TabsTrigger
+            value="fundamentals"
+            className="rounded-lg py-2 text-xs font-semibold transition-all data-[state=active]:bg-[#161616] data-[state=active]:text-white text-[#71717A]"
+          >
+            <BarChart3 className="w-3.5 h-3.5 mr-1.5 shrink-0 text-white" />
+            Fundamentals
+          </TabsTrigger>
+          <TabsTrigger
+            value="risk"
+            className="rounded-lg py-2 text-xs font-semibold transition-all data-[state=active]:bg-[#161616] data-[state=active]:text-white text-[#71717A]"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 mr-1.5 shrink-0 text-[#FF495B]" />
+            Risk & Catalysts
+          </TabsTrigger>
+          <TabsTrigger
+            value="snapshot"
+            className="rounded-lg py-2 text-xs font-semibold transition-all data-[state=active]:bg-[#161616] data-[state=active]:text-white text-[#71717A]"
+          >
+            <Layers className="w-3.5 h-3.5 mr-1.5 shrink-0 text-white" />
+            20+ Indicators Ledger
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ======================================================== */}
+        {/* TAB 1: EXECUTIVE OVERVIEW */}
+        {/* ======================================================== */}
+        <TabsContent value="overview" className="space-y-6 outline-none">
+          {/* Institutional Conviction Gauge */}
+          <ConvictionGauge
+            score={overallConfidence}
+            decision={decision}
+            buyThreshold={buyThreshold}
+            accumulateThreshold={accumulateThreshold}
+            symbol={result.symbol}
+            thresholdAdjustments={thresholdAdjustments}
+          />
+
+          {/* Recharts Quant Radar & Target Ladder side-by-side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <FactorRadarChart
+              symbol={result.symbol}
+              valuationScore={valuationScore}
+              momentumScore={momentumScore}
+              trendScore={trendScore}
+              fundamentalsScore={fundamentalsScore}
+              debtToEquity={debtToEquity}
+              sentimentScore={analysisData?.engineV2?.specialistReports?.sentiment?.score ?? 65}
+            />
+            <RechartsTargetTrajectory
+              currentPrice={currentPrice || 100}
+              supportLevel={supportLevel}
+              shortTermPrice={analysisData?.priceTargets?.shortTerm?.price}
+              mediumTermPrice={analysisData?.priceTargets?.mediumTerm?.price || analystTarget || undefined}
+              longTermPrice={analysisData?.priceTargets?.longTerm?.price}
+            />
+          </div>
+
+          {/* Price Target Horizon Roadmap */}
+          <PriceTargetHorizon
+            currentPrice={currentPrice}
+            supportLevel={supportLevel}
+            analystTarget={analystTarget}
+            targets={analysisData?.priceTargets}
+          />
+
+          {/* Voting Committee Consensus Roster */}
+          <SpecialistConsensus
+            engineV2={analysisData?.engineV2}
+            valuationScore={valuationScore}
+            momentumScore={momentumScore}
+            trendScore={trendScore}
+            fundamentalsScore={fundamentalsScore}
+          />
+
+          {/* Executive Summary Narrative */}
+          {analysisData?.executiveSummary && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 backdrop-blur-xl shadow-xl space-y-2.5">
+              <div className="flex items-center gap-2 border-b border-zinc-800/80 pb-2.5">
+                <Target className="w-3.5 h-3.5 text-[#0FEDBE]" />
+                <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
+                  Investment Committee Executive Synthesis
+                </h3>
+              </div>
+              <p className="text-xs leading-relaxed text-zinc-300 font-sans">{analysisData.executiveSummary}</p>
+            </div>
+          )}
+
+          {/* Bull vs Bear Scenario Asymmetry */}
+          <BullBearScenarios
+            bullCase={analysisData?.bullCase}
+            bearCase={analysisData?.bearCase}
+          />
+
+          {/* Actionable Directives & Invalidation */}
+          {(analysisData?.actionPlan || analysisData?.monitoringChecklist) && (
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-4">
+              <div className="flex items-center gap-2 border-b border-[#27272A] pb-3">
+                <Crosshair className="w-3.5 h-3.5 text-white" />
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Execution Directives & Invalidation Triggers
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {analysisData?.actionPlan && (
+                  <div className="space-y-2.5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA]">
+                      Order Execution Guidance
+                    </p>
+                    <div className="space-y-2">
+                      {analysisData.actionPlan.map((step, idx) => (
+                        <div key={idx} className="flex items-start gap-2.5">
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-[#161616] border border-[#27272A] text-[9px] font-bold text-white mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <p className="text-xs leading-relaxed text-[#A1A1AA]">{step}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <p className={`mt-3 text-sm font-bold tracking-wide uppercase ${decisionClass}`}>{decision}</p>
-                  
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-2 backdrop-blur-sm">
-                      <p className="text-[10px] uppercase tracking-wider text-white/50">Buy Trigger</p>
-                      <p className="text-sm font-mono text-white">{buyThreshold}+</p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-2 backdrop-blur-sm">
-                      <p className="text-[10px] uppercase tracking-wider text-white/50">Accumulate</p>
-                      <p className="text-sm font-mono text-white">{accumulateThreshold}+</p>
+                )}
+
+                {analysisData?.monitoringChecklist && (
+                  <div className="space-y-2.5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#FF495B]">
+                      Core Invalidation Criteria
+                    </p>
+                    <div className="space-y-2">
+                      {analysisData.monitoringChecklist.map((item, idx) => (
+                        <div key={idx} className="flex items-start gap-2.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#FF495B] mt-0.5" />
+                          <p className="text-xs leading-relaxed text-zinc-400 italic">{item}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  
-                  {thresholdAdjustments.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-white/10 space-y-1.5">
-                      {thresholdAdjustments.map((item, idx) => (
-                        <p key={idx} className="text-[11px] text-white/60 flex items-center gap-1.5">
-                          <ChevronRight className="w-3 h-3 text-[#d4a017]" />
-                          {item}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className={`rounded-xl border px-4 py-3 flex flex-col justify-between h-20 transition-all hover:-translate-y-1 hover:shadow-lg ${scorePillClass(valuationScore)}`}>
-                  <p className="text-[10px] uppercase tracking-widest opacity-80">Valuation</p>
-                  <p className="text-2xl font-bold tracking-tight">{valuationScore}</p>
-                </div>
-                <div className={`rounded-xl border px-4 py-3 flex flex-col justify-between h-20 transition-all hover:-translate-y-1 hover:shadow-lg ${scorePillClass(momentumScore)}`}>
-                  <p className="text-[10px] uppercase tracking-widest opacity-80">Momentum</p>
-                  <p className="text-2xl font-bold tracking-tight">{momentumScore}</p>
-                </div>
-                <div className={`rounded-xl border px-4 py-3 flex flex-col justify-between h-20 transition-all hover:-translate-y-1 hover:shadow-lg ${scorePillClass(trendScore)}`}>
-                  <p className="text-[10px] uppercase tracking-widest opacity-80">Trend</p>
-                  <p className="text-2xl font-bold tracking-tight">{trendScore}</p>
-                </div>
-                <div className={`rounded-xl border px-4 py-3 flex flex-col justify-between h-20 transition-all hover:-translate-y-1 hover:shadow-lg ${scorePillClass(fundamentalsScore)}`}>
-                  <p className="text-[10px] uppercase tracking-widest opacity-80">Fundamentals</p>
-                  <p className="text-2xl font-bold tracking-tight">{fundamentalsScore}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-sm text-white/50 flex items-center justify-center min-h-[100px]">
-              Waiting for snapshot data...
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Analysis Blocks */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden shadow-2xl">
-        <div className="px-6 py-4 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent">
-          <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-[#d4a017]" />
-            AI Intelligence Report
-          </h3>
-        </div>
-        <div className="p-6">
-          {analysisData ? (
-            <div className="space-y-4">
-              <div className="columns-1 lg:columns-2 gap-4 space-y-4">
-                
-                {/* Executive Summary */}
-                {analysisData.executiveSummary && (
-                  <article className="break-inside-avoid rounded-xl border border-white/10 bg-black/20 p-5 animate-in slide-in-from-bottom-4 duration-500 fade-in">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-[#0FEDBE]/10 rounded-lg">
-                        <Target className="w-4 h-4 text-[#0FEDBE]" />
-                      </div>
-                      <h4 className="text-sm font-bold text-white/90">Executive Summary</h4>
-                    </div>
-                    <p className="text-sm leading-relaxed text-white/70">{analysisData.executiveSummary}</p>
-                  </article>
-                )}
-
-                {/* Fundamental Analysis */}
-                {analysisData.fundamentalAnalysis && (
-                  <article className="break-inside-avoid rounded-xl border border-white/10 bg-black/20 p-5 animate-in slide-in-from-bottom-4 duration-500 fade-in">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-[#FDD458]/10 rounded-lg">
-                        <BarChart3 className="w-4 h-4 text-[#FDD458]" />
-                      </div>
-                      <h4 className="text-sm font-bold text-white/90">Fundamental Analysis</h4>
-                    </div>
-                    <div className="space-y-3">
-                      {Object.entries(analysisData.fundamentalAnalysis).map(([key, value]) => (
-                        <div key={key} className="group">
-                          <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
-                          <p className="text-sm leading-relaxed text-white/80 group-hover:text-white transition-colors">{value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
-                )}
-
-                {/* Technical Analysis */}
-                {analysisData.technicalAnalysis && (
-                  <article className="break-inside-avoid rounded-xl border border-white/10 bg-black/20 p-5 animate-in slide-in-from-bottom-4 duration-500 fade-in">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-[#d4a017]/10 rounded-lg">
-                        <TrendingUp className="w-4 h-4 text-[#d4a017]" />
-                      </div>
-                      <h4 className="text-sm font-bold text-white/90">Technical Analysis</h4>
-                    </div>
-                    <div className="space-y-3">
-                      {Object.entries(analysisData.technicalAnalysis).map(([key, value]) => (
-                        <div key={key} className="group">
-                          <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
-                          <p className="text-sm leading-relaxed text-white/80 group-hover:text-white transition-colors">{value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
-                )}
-
-                {/* Risk Assessment */}
-                {analysisData.riskAssessment && (
-                  <article className="break-inside-avoid rounded-xl border border-white/10 bg-black/20 p-5 animate-in slide-in-from-bottom-4 duration-500 fade-in">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-[#FF8A4C]/10 rounded-lg">
-                        <ShieldAlert className="w-4 h-4 text-[#FF8A4C]" />
-                      </div>
-                      <h4 className="text-sm font-bold text-white/90">Risk Assessment</h4>
-                    </div>
-                    <div className="space-y-3">
-                      {Object.entries(analysisData.riskAssessment).map(([key, value]) => (
-                        <div key={key} className="group">
-                          <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
-                          <p className="text-sm leading-relaxed text-white/80 group-hover:text-white transition-colors">{String(value)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
-                )}
-
-                {/* Action Plan */}
-                {(analysisData.actionPlan || analysisData.monitoringChecklist) && (
-                  <article className="break-inside-avoid rounded-xl border border-[#d4a017]/30 bg-gradient-to-b from-[#d4a017]/10 to-transparent p-5 animate-in slide-in-from-bottom-4 duration-500 fade-in">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-[#d4a017]/20 rounded-lg">
-                        <Crosshair className="w-4 h-4 text-[#d4a017]" />
-                      </div>
-                      <h4 className="text-sm font-bold text-[#d4a017]">Strategic Plan</h4>
-                    </div>
-                    <div className="space-y-4">
-                      {analysisData.actionPlan && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-[#d4a017]/70 mb-2">Action Items</p>
-                          <div className="space-y-2">
-                            {analysisData.actionPlan.map((step, idx) => (
-                              <div key={idx} className="flex items-start gap-2.5">
-                                <span className="flex items-center justify-center mt-0.5 h-4 w-4 rounded-full bg-[#d4a017]/20 text-[9px] font-bold text-[#d4a017] shrink-0">{idx + 1}</span>
-                                <p className="text-sm leading-relaxed text-white/80">{step}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {analysisData.monitoringChecklist && (
-                        <div className="pt-2">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-[#d4a017]/70 mb-2">Monitoring Triggers</p>
-                          <div className="space-y-2">
-                            {analysisData.monitoringChecklist.map((item, idx) => (
-                              <div key={idx} className="flex items-start gap-2.5">
-                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-white/30 shrink-0" />
-                                <p className="text-sm leading-relaxed text-white/70 italic">{item}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                )}
-
-                {/* Industry Context */}
-                {analysisData.industryContext && (
-                  <article className="break-inside-avoid rounded-xl border border-white/10 bg-black/20 p-5 animate-in slide-in-from-bottom-4 duration-500 fade-in">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-white/5 rounded-lg">
-                        <Users className="w-4 h-4 text-white/70" />
-                      </div>
-                      <h4 className="text-sm font-bold text-white/90">Industry Context</h4>
-                    </div>
-                    <p className="text-sm leading-relaxed text-white/70">{analysisData.industryContext}</p>
-                  </article>
-                )}
-
-                {/* Bull & Bear Cases */}
-                {(analysisData.bullCase || analysisData.bearCase) && (
-                  <article className="break-inside-avoid rounded-xl border border-white/10 bg-black/20 p-5 animate-in slide-in-from-bottom-4 duration-500 fade-in">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="flex -space-x-1">
-                        <div className="p-1.5 bg-[#0FEDBE]/10 rounded-full z-10"><TrendingUp className="w-3 h-3 text-[#0FEDBE]" /></div>
-                        <div className="p-1.5 bg-[#FF495B]/10 rounded-full"><TrendingUp className="w-3 h-3 text-[#FF495B] rotate-180" /></div>
-                      </div>
-                      <h4 className="text-sm font-bold text-white/90">Scenarios</h4>
-                    </div>
-                    <div className="space-y-4">
-                      {analysisData.bullCase && (
-                        <div className="rounded-lg bg-[#0FEDBE]/5 border border-[#0FEDBE]/10 p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-[#0FEDBE] mb-1">Bull Case</p>
-                          <p className="text-sm leading-relaxed text-[#0FEDBE]/80">{analysisData.bullCase}</p>
-                        </div>
-                      )}
-                      {analysisData.bearCase && (
-                        <div className="rounded-lg bg-[#FF495B]/5 border border-[#FF495B]/10 p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-[#FF495B] mb-1">Bear Case</p>
-                          <p className="text-sm leading-relaxed text-[#FF495B]/80">{analysisData.bearCase}</p>
-                        </div>
-                      )}
-                    </div>
-                  </article>
                 )}
               </div>
-
-              {/* Meta/Fallback Lines */}
-              {analysisData.fallbackReason && (
-                <div className="mt-4 rounded-lg border border-[#FF8A4C]/30 bg-[#FF8A4C]/10 px-4 py-3 animate-in fade-in">
-                  <p className="text-xs font-medium text-[#FFB089]">ℹ️ Fallback Note: {analysisData.fallbackReason}</p>
-                </div>
-              )}
-            </div>
-          ) : result.analysis && !analysisData ? (
-            <div className="text-sm leading-relaxed text-[#FF495B] min-h-[300px] flex items-center p-4 border border-[#FF495B]/20 rounded-xl bg-[#FF495B]/5">
-              Analysis response could not be parsed as structured data. Raw response: {result.analysis}
-            </div>
-          ) : (
-            <div className="text-sm text-white/50 min-h-[300px] flex items-center justify-center">
-              Waiting for AI stream...
             </div>
           )}
-        </div>
-      </div>
+        </TabsContent>
 
-      {/* Snapshot Grid */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden shadow-2xl">
-        <div className="px-6 py-4 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent">
-          <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-[#d4a017]" />
-            Market Snapshot Data
-          </h3>
-        </div>
-        <div className="p-6">
-          {snapshotRows.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {snapshotRows.map((row) => (
-                <div key={row.label} className="group rounded-xl border border-white/5 bg-black/20 p-3 hover:bg-white/5 transition-colors">
-                  <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1 truncate" title={row.label}>{row.label}</p>
-                  <p className={`text-sm font-mono font-medium truncate ${getValueColorClass(row.value)}`} title={row.value}>
-                    {row.value}
-                  </p>
-                </div>
-              ))}
+        {/* ======================================================== */}
+        {/* TAB 2: TECHNICALS & LIVE CHART */}
+        {/* ======================================================== */}
+        <TabsContent value="technicals" className="space-y-6 outline-none">
+          {/* Recharts Moving Average Extension Bar Chart */}
+          <MovingAverageExtensionChart
+            currentPrice={currentPrice}
+            sma20={sma20}
+            sma50={avg50}
+            sma200={avg200}
+            fiftyTwoWeekHigh={fiftyTwoWeekHigh}
+            fiftyTwoWeekLow={fiftyTwoWeekLow}
+          />
+
+          {/* Technical Telemetry Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <RsiMeter rsi={rsi} />
+            <TrendStrengthMeter
+              adx={adx}
+              supertrend={supertrend}
+              macdSignal={macdSignal}
+            />
+          </div>
+
+          <MovingAverageRibbon
+            currentPrice={currentPrice}
+            sma20={sma20}
+            sma50={avg50}
+            sma200={avg200}
+          />
+
+          <BollingerRangeMeter
+            currentPrice={currentPrice}
+            rawString={bollingerBandsRaw}
+          />
+
+          {/* Interactive TradingView Candlestick Chart */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 backdrop-blur-xl shadow-xl space-y-3">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+              <div>
+                <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+                  <LineChart className="w-3.5 h-3.5 text-[#0FEDBE]" />
+                  Live Candlestick Telemetry & Drawing Terminal
+                </h3>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Real-time ticks, volume distribution, oscillators, and trend overlays
+                </p>
+              </div>
+              <Badge variant="outline" className="font-mono text-[10px] text-zinc-400 border-zinc-700">
+                TradingView
+              </Badge>
             </div>
-          ) : (
-            <div className="text-sm text-white/50 flex items-center justify-center min-h-[100px]">
-              No snapshot data loaded.
+
+            <div className="rounded-lg overflow-hidden border border-zinc-800 bg-black">
+              <TradingViewWidget
+                key={`${result.symbol}-candle-chart`}
+                scriptUrl={`${scriptUrl}advanced-chart.js`}
+                config={CANDLE_CHART_WIDGET_CONFIG(result.symbol)}
+                height={540}
+              />
+            </div>
+          </div>
+
+          {/* TradingView Technical Analysis Speedometer */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Compass className="w-3.5 h-3.5 text-white" />
+                Oscillator & Moving Average Gauge
+              </h3>
+              <div className="rounded-lg overflow-hidden border border-[#27272A] bg-black/40">
+                <TradingViewWidget
+                  key={`${result.symbol}-tv-gauge`}
+                  scriptUrl={`${scriptUrl}technical-analysis.js`}
+                  config={TECHNICAL_ANALYSIS_WIDGET_CONFIG(result.symbol)}
+                  height={380}
+                />
+              </div>
+            </div>
+
+            {analysisData?.technicalAnalysis && (
+              <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-3 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 mb-3">
+                    <TrendingUp className="w-3.5 h-3.5 text-white" />
+                    Quantitative Technical Breakdown
+                  </h3>
+                  <div className="space-y-2.5">
+                    {Object.entries(analysisData.technicalAnalysis).map(([k, v]) => (
+                      <div key={k} className="rounded-lg border border-[#27272A] bg-[#0A0A0A] p-3">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-1">
+                          {k}
+                        </span>
+                        <p className="text-xs text-[#A1A1AA] leading-relaxed">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ======================================================== */}
+        {/* TAB 3: FUNDAMENTALS & VALUATION */}
+        {/* ======================================================== */}
+        <TabsContent value="fundamentals" className="space-y-6 outline-none">
+          {/* Sector Valuation Scorecard */}
+          <ValuationBenchmarkBar peRatio={peRatio} sector={sector} />
+
+          {/* Financial Health Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-4 space-y-1 hover:border-[#3F3F46] transition-colors">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#71717A] block">
+                Return on Equity (ROE)
+              </span>
+              <p className="text-xl font-bold font-mono text-white">
+                {roe !== null ? `${roe.toFixed(2)}%` : "—"}
+              </p>
+              <span className="text-[10px] text-[#A1A1AA]">Capital Efficiency</span>
+            </div>
+
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-4 space-y-1 hover:border-[#3F3F46] transition-colors">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#71717A] block">
+                Debt to Equity
+              </span>
+              <p className="text-xl font-bold font-mono text-white">
+                {debtToEquity !== null ? debtToEquity.toFixed(2) : "—"}
+              </p>
+              <span className="text-[10px] text-[#A1A1AA]">
+                {debtToEquity && debtToEquity <= 1 ? "Conservative Solvency" : "Moderate Leverage"}
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-4 space-y-1 hover:border-[#3F3F46] transition-colors">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#71717A] block">
+                Revenue Growth YoY
+              </span>
+              <p className="text-xl font-bold font-mono text-white">
+                {revenueGrowth !== null ? `${revenueGrowth > 0 ? "+" : ""}${revenueGrowth.toFixed(1)}%` : "—"}
+              </p>
+              <span className="text-[10px] text-[#A1A1AA]">Top-Line Expansion</span>
+            </div>
+
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-4 space-y-1 hover:border-[#3F3F46] transition-colors">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#71717A] block">
+                Earnings Growth YoY
+              </span>
+              <p className="text-xl font-bold font-mono text-white">
+                {earningsGrowth !== null ? `${earningsGrowth > 0 ? "+" : ""}${earningsGrowth.toFixed(1)}%` : "—"}
+              </p>
+              <span className="text-[10px] text-[#A1A1AA]">Net Margin Velocity</span>
+            </div>
+          </div>
+
+          {/* Interactive TradingView Profile & Financials */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-3.5 h-3.5 text-white" />
+                Corporate Structure & Executive Roster
+              </h3>
+              <div className="rounded-lg overflow-hidden border border-[#27272A] bg-black/40">
+                <TradingViewWidget
+                  key={`${result.symbol}-profile`}
+                  scriptUrl={`${scriptUrl}symbol-profile.js`}
+                  config={COMPANY_PROFILE_WIDGET_CONFIG(result.symbol)}
+                  height={440}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <BarChart3 className="w-3.5 h-3.5 text-white" />
+                Audited Financial Statements
+              </h3>
+              <div className="rounded-lg overflow-hidden border border-[#27272A] bg-black/40">
+                <TradingViewWidget
+                  key={`${result.symbol}-financials`}
+                  scriptUrl={`${scriptUrl}financials.js`}
+                  config={COMPANY_FINANCIALS_WIDGET_CONFIG(result.symbol)}
+                  height={440}
+                />
+              </div>
+            </div>
+          </div>
+
+          {analysisData?.fundamentalAnalysis && (
+            <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 text-white" />
+                Fundamental Equity Assessment
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {Object.entries(analysisData.fundamentalAnalysis).map(([k, v]) => (
+                  <div key={k} className="rounded-lg border border-[#27272A] bg-[#0A0A0A] p-3.5">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-white block mb-1">
+                      {k}
+                    </span>
+                    <p className="text-xs text-[#A1A1AA] leading-relaxed">{v}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-        </div>
-      </div>
+        </TabsContent>
 
-      {/* Latest Market News Block */}
-      {result.newsData && (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="px-6 py-4 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent">
-            <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#0FEDBE]" />
-              Latest Market News Context
+        {/* ======================================================== */}
+        {/* TAB 4: RISK ASSESSMENT & CATALYSTS */}
+        {/* ======================================================== */}
+        <TabsContent value="risk" className="space-y-6 outline-none">
+          <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <ShieldAlert className="w-3.5 h-3.5 text-white" />
+              Institutional 3-Pillar Risk Audit
             </h3>
+            <RiskMatrix
+              businessRisk={analysisData?.riskAssessment?.businessRisk}
+              valuationRisk={analysisData?.riskAssessment?.valuationRisk}
+              macroRisk={analysisData?.riskAssessment?.macroRisk}
+            />
           </div>
-          <div className="p-6">
-            <div className="space-y-3">
-              {result.newsData.split('\n').filter(Boolean).map((newsLine: string, idx: number) => {
-                const cleanLine = newsLine.replace(/^\d+\.\s*/, '');
-                const sourceMatch = cleanLine.match(/^\[(.*?)\]\s*(.*)$/);
-                let source = "Market News";
-                let headline = cleanLine;
-                if (sourceMatch) {
-                  source = sourceMatch[1];
-                  headline = sourceMatch[2];
-                }
-                return (
-                  <div key={idx} className="group rounded-xl border border-white/5 bg-black/20 p-4 hover:bg-white/5 transition-colors">
-                    <span className="text-[10px] uppercase tracking-widest text-[#0FEDBE]/80 mb-1.5 block">{source}</span>
-                    <p className="text-sm leading-relaxed text-white/80 group-hover:text-white transition-colors">{headline}</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {analysisData?.catalysts && (
+              <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-white" />
+                  Upcoming Catalysts & Forward Drivers
+                </h3>
+                <div className="space-y-2">
+                  {analysisData.catalysts.map((cat, idx) => (
+                    <div key={idx} className="flex items-start gap-2.5 p-3 rounded-lg bg-[#0A0A0A] border border-[#27272A]">
+                      <Sparkles className="w-3.5 h-3.5 text-white shrink-0 mt-0.5" />
+                      <p className="text-xs text-[#A1A1AA] leading-relaxed">{cat}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysisData?.industryContext && (
+              <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-white" />
+                  Sector Competitive Positioning
+                </h3>
+                <div className="p-4 rounded-lg bg-[#0A0A0A] border border-[#27272A]">
+                  <p className="text-xs leading-relaxed text-[#A1A1AA]">{analysisData.industryContext}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ======================================================== */}
+        {/* TAB 5: 20+ QUANTITATIVE INDICATOR LEDGER */}
+        {/* ======================================================== */}
+        <TabsContent value="snapshot" className="space-y-6 outline-none">
+          <div className="rounded-xl border border-[#27272A] bg-[#111111] p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
+              <div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-white" />
+                  Engine V2 Indicator & Market Snapshot Ledger
+                </h3>
+                <p className="text-[11px] text-[#71717A] mt-0.5">
+                  Over 20 computed mathematical metrics ingested and evaluated by our agent swarm
+                </p>
+              </div>
+              <Badge variant="outline" className="font-mono text-xs text-white border-[#27272A] bg-[#161616]">
+                {snapshotRows.length} Points Verified
+              </Badge>
+            </div>
+
+            {snapshotRows.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
+                {snapshotRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="group rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-3 hover:bg-zinc-900/80 transition-colors"
+                  >
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-500 mb-1 truncate" title={row.label}>
+                      {row.label}
+                    </p>
+                    <p
+                      className={`text-sm font-mono font-bold truncate ${getValueColorClass(row.value)}`}
+                      title={row.value}
+                    >
+                      {row.value}
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-            <div className="mt-4 rounded-lg border border-[#FDD458]/30 bg-[#FDD458]/10 px-4 py-3">
-              <p className="text-xs font-medium text-[#FDD458]">ℹ️ Notice: This news feed is provided for your context only and was deliberately excluded from the AI's mathematical analysis.</p>
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-zinc-500 font-mono flex items-center justify-center min-h-[100px]">
+                No snapshot data loaded.
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }
 
 export default function AnalysisPage() {
   const [isCompare, setIsCompare] = useState(false);
-  const [symbol1, setSymbol1] = useState("ASIANPAINT");
-  const [symbol2, setSymbol2] = useState("BERGERPAINT");
+  const [symbol1, setSymbol1] = useState("RELIANCE.NS");
+  const [symbol2, setSymbol2] = useState("TCS.NS");
   const [timeframe, setTimeframe] = useState("medium");
   const [riskProfile, setRiskProfile] = useState("balanced");
-  
+
   const [loading, setLoading] = useState(false);
   const [result1, setResult1] = useState<AnalysisResponse | null>(defaultResult);
   const [result2, setResult2] = useState<AnalysisResponse | null>(defaultResult);
@@ -638,7 +970,7 @@ export default function AnalysisPage() {
 
   useEffect(() => {
     if (historyOpen) {
-      getAnalysisHistory().then(res => {
+      getAnalysisHistory().then((res) => {
         if (res.success) setHistoryList(res.data);
       });
     }
@@ -649,21 +981,16 @@ export default function AnalysisPage() {
     const analysisData = parsePartialJson(result.analysis);
     if (!analysisData) return;
 
-    // Calculate score logic briefly again to save
     const snapshotRows = parseSnapshot(result.stockData);
-    const metricMap = buildMetricMap(snapshotRows);
-    const peRatio = parseNumericValue(metricMap["p/e ratio"]);
-    const earningsGrowth = parseNumericValue(metricMap["earnings growth"]);
-    const sector = metricMap["sector"] || "default";
-    let score = 50; 
-    
+    let score = analysisData?.engineV2?.deterministicScoring?.overallScore || 50;
+
     await saveAnalysisToHistory({
       symbol: result.symbol,
       timeframe: result.timeframe,
       riskProfile: result.riskProfile,
       analysis: result.analysis,
       confidenceScore: score,
-      decision: "History Record",
+      decision: analysisData?.engineV2?.deterministicScoring?.decision || "Institutional Record",
     });
   };
 
@@ -676,7 +1003,7 @@ export default function AnalysisPage() {
       const response = await fetch("/api/stock-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, timeframe, riskProfile }),
+        body: JSON.stringify({ symbol, timeframe, riskProfile, forceRefresh: true }),
       });
 
       if (!response.ok) {
@@ -696,16 +1023,15 @@ export default function AnalysisPage() {
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No reader stream available");
       const decoder = new TextDecoder();
-      
+
       let analysisText = "";
       let stockDataText = "";
-      
+
       setResult({
         symbol: symbol.toUpperCase(),
         timeframe,
         riskProfile,
         stockData: "",
-        newsData: "",
         analysis: "",
       });
 
@@ -713,10 +1039,10 @@ export default function AnalysisPage() {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n\n");
-        buffer = lines.pop() || ""; 
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
@@ -724,12 +1050,10 @@ export default function AnalysisPage() {
               const data = JSON.parse(line.slice(6));
               if (data.type === "stockData") {
                 stockDataText = data.data;
-                setResult(prev => prev ? { ...prev, stockData: stockDataText } : prev);
-              } else if (data.type === "newsData") {
-                setResult(prev => prev ? { ...prev, newsData: data.data } : prev);
+                setResult((prev) => (prev ? { ...prev, stockData: stockDataText } : prev));
               } else if (data.type === "token") {
                 analysisText += data.data;
-                setResult(prev => prev ? { ...prev, analysis: analysisText } : prev);
+                setResult((prev) => (prev ? { ...prev, analysis: analysisText } : prev));
               } else if (data.type === "error") {
                 setError(data.error);
                 break;
@@ -740,7 +1064,7 @@ export default function AnalysisPage() {
           }
         }
       }
-      
+
       saveToHistory({
         symbol: symbol.toUpperCase(),
         timeframe,
@@ -748,7 +1072,6 @@ export default function AnalysisPage() {
         stockData: stockDataText,
         analysis: analysisText,
       });
-
     } catch (e) {
       setError("Unable to contact analysis server");
     }
@@ -772,55 +1095,63 @@ export default function AnalysisPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#e2e4e9] font-sans selection:bg-[#d4a017]/30 selection:text-white relative overflow-hidden">
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#d4a017]/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-[#0FEDBE]/5 rounded-full blur-[150px] pointer-events-none" />
-      
-      <div className="max-w-[1600px] mx-auto px-4 lg:px-8 py-8 relative z-10">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-white/10 pb-6">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-[#27272A] selection:text-white relative overflow-hidden pb-12">
+      <div className="max-w-[1700px] mx-auto px-4 lg:px-8 py-8 relative z-10">
+        {/* Top Header */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#27272A] pb-5">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">
-              AI Market Intelligence
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] uppercase font-mono tracking-widest font-bold text-white px-2 py-0.5 rounded bg-[#161616] border border-[#27272A]">
+                Institutional Swarm V2
+              </span>
+              <span className="text-[10px] text-[#71717A] font-mono">• 7 Specialized Agent Nodes</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              AI Market Intelligence Terminal
             </h1>
-            <p className="text-white/50 text-sm mt-2 font-medium tracking-wide">
-              Advanced quantitative reasoning & technical analysis
+            <p className="text-[#71717A] text-xs mt-1 font-medium tracking-wide">
+              Quantitative multi-factor synthesis, econometric valuation models & real-time telemetry
             </p>
           </div>
-          
+
           <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
             <DialogTrigger asChild>
-              <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-5 py-2.5 text-sm font-semibold text-white/90 transition-all hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5">
-                <History className="w-4 h-4 text-[#d4a017]" />
-                View History
+              <button className="flex items-center gap-2 rounded-lg border border-[#27272A] bg-[#111111] px-4 py-2 text-xs font-semibold text-white transition-all hover:border-[#3F3F46] hover:bg-[#161616]">
+                <History className="w-3.5 h-3.5 text-white" />
+                Historical Ledger
               </button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-[#0a0a0a]/95 backdrop-blur-2xl border-white/10 text-white shadow-2xl">
+            <DialogContent className="sm:max-w-[600px] bg-[#111111] border-[#27272A] text-white shadow-2xl">
               <DialogHeader>
-                <DialogTitle className="text-xl font-bold">Analysis Ledger</DialogTitle>
-                <DialogDescription className="text-white/50">
-                  Your historically generated reports and market calls.
+                <DialogTitle className="text-lg font-bold font-mono">Institutional Ledger</DialogTitle>
+                <DialogDescription className="text-xs text-[#71717A]">
+                  Audit trail of historically synthesized market calls and confidence scores.
                 </DialogDescription>
               </DialogHeader>
-              <div className="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="mt-4 space-y-2.5 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                 {historyList.length === 0 ? (
-                  <div className="text-sm text-white/40 italic flex items-center justify-center p-8 border border-white/5 rounded-xl bg-white/5">
-                    No historical records found.
+                  <div className="text-xs text-[#71717A] italic flex items-center justify-center p-8 border border-[#27272A] rounded-lg bg-[#0A0A0A]">
+                    No historical calls recorded.
                   </div>
                 ) : (
                   historyList.map((h, i) => (
-                    <div key={i} className="group rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:bg-white/10">
-                      <div className="flex justify-between items-start mb-3">
-                        <h4 className="font-bold text-[#d4a017] text-lg">{h.symbol}</h4>
-                        <span className="text-xs font-mono text-white/40 px-2 py-1 bg-black/40 rounded-md">
-                          {new Date(h.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    <div key={i} className="group rounded-lg border border-[#27272A] bg-[#0A0A0A] p-3.5 transition-all hover:bg-[#161616] hover:border-[#3F3F46]">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-bold text-white text-base font-mono">{h.symbol}</h4>
+                        <span className="text-[10px] font-mono text-[#71717A] px-2 py-0.5 bg-[#111111] rounded border border-[#27272A]">
+                          {new Date(h.createdAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 flex items-center gap-2">
-                          <Activity className="w-3 h-3 text-white/50" />
-                          <span className="text-xs font-bold text-white/80">{h.confidenceScore}/100</span>
+                        <div className="px-2.5 py-1 rounded bg-[#111111] border border-[#27272A] flex items-center gap-1.5">
+                          <Activity className="w-3 h-3 text-[#0FEDBE]" />
+                          <span className="text-xs font-bold font-mono text-white">{h.confidenceScore}/100</span>
                         </div>
-                        <p className="text-sm font-medium text-white/70 line-clamp-1 flex-1">
+                        <p className="text-xs font-medium text-[#A1A1AA] line-clamp-1 flex-1">
                           {h.decision}
                         </p>
                       </div>
@@ -832,112 +1163,131 @@ export default function AnalysisPage() {
           </Dialog>
         </div>
 
-        <div className={`grid gap-8 ${isCompare ? 'xl:grid-cols-1' : 'xl:grid-cols-[340px_1fr]'}`}>
-          
-          <aside className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 h-fit shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xs font-black uppercase tracking-widest text-[#d4a017]">
-                Parameters
-              </h2>
-              <button 
-                type="button"
-                onClick={() => setIsCompare(!isCompare)}
-                className={`text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 font-bold ${isCompare ? 'bg-[#d4a017] text-black shadow-[0_0_10px_rgba(212,160,23,0.4)]' : 'bg-black/40 text-white/50 hover:bg-black/60 hover:text-white'}`}
-              >
-                <LayoutPanelLeft className="w-3 h-3" />
-                {isCompare ? "Compare: ON" : "Compare: OFF"}
-              </button>
+        {/* TOP COMMAND CONSOLE (FORM AS FULL-WIDTH HEADER) */}
+        <div className="mb-8 rounded-xl border border-[#27272A] bg-[#0A0A0A] p-5 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#27272A] pb-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                <SlidersHorizontal className="w-4 h-4 text-[#A1A1AA]" />
+                <span>Command & Execution Console</span>
+              </div>
+              <span className="hidden sm:inline text-[#27272A]">•</span>
+              {/* Quick Liquid Tickers */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-mono text-[#71717A] uppercase">Quick Tickers:</span>
+                {POPULAR_TICKERS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setSymbol1(t)}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors ${
+                      symbol1.toUpperCase() === t
+                        ? "bg-white text-black font-bold border-white"
+                        : "bg-[#111111] border-[#27272A] text-[#A1A1AA] hover:text-white hover:border-[#3F3F46]"
+                    }`}
+                  >
+                    {t.replace(".NS", "")}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className={`grid gap-5 ${isCompare ? 'md:grid-cols-4' : ''}`}>
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-white/50 pl-1">
-                  Primary Asset
-                </label>
-                <div className="relative group">
-                  <input
-                    value={symbol1}
-                    onChange={(event) => setSymbol1(event.target.value)}
-                    placeholder="e.g. RELIANCE.NS"
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm font-medium text-white placeholder-white/20 outline-none transition-all focus:border-[#d4a017] focus:bg-black/60 focus:ring-1 focus:ring-[#d4a017]/50"
-                  />
-                </div>
-              </div>
-
-              {isCompare && (
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-white/50 pl-1">
-                    Secondary Asset
-                  </label>
-                  <div className="relative group">
-                    <input
-                      value={symbol2}
-                      onChange={(event) => setSymbol2(event.target.value)}
-                      placeholder="e.g. TCS.NS"
-                      className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm font-medium text-white placeholder-white/20 outline-none transition-all focus:border-[#d4a017] focus:bg-black/60 focus:ring-1 focus:ring-[#d4a017]/50"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-white/50 pl-1">
-                  Time Horizon
-                </label>
-                <select
-                  value={timeframe}
-                  onChange={(event) => setTimeframe(event.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm font-medium text-white outline-none transition-all focus:border-[#d4a017] focus:bg-black/60 appearance-none cursor-pointer"
-                >
-                  <option value="short">Short Term (1-3 months)</option>
-                  <option value="medium">Medium Term (3-12 months)</option>
-                  <option value="long">Long Term (1-5 years)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-white/50 pl-1">
-                  Risk Profile
-                </label>
-                <select
-                  value={riskProfile}
-                  onChange={(event) => setRiskProfile(event.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm font-medium text-white outline-none transition-all focus:border-[#d4a017] focus:bg-black/60 appearance-none cursor-pointer"
-                >
-                  <option value="conservative">Conservative</option>
-                  <option value="balanced">Balanced</option>
-                  <option value="aggressive">Aggressive</option>
-                </select>
-              </div>
-
-              <div className={`${isCompare ? 'md:col-span-4 flex items-end justify-end' : 'mt-2'}`}>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className={`relative overflow-hidden rounded-xl bg-gradient-to-r from-[#d4a017] to-[#f3c642] px-6 py-3.5 text-sm font-bold text-black transition-all hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(212,160,23,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none ${isCompare ? 'w-auto min-w-[200px]' : 'w-full'}`}
-                >
-                  <div className="relative z-10 flex items-center justify-center gap-2">
-                    {loading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        {isCompare ? "Launch Comparison" : "Initialize Analysis"}
-                      </>
-                    )}
-                  </div>
-                </button>
-              </div>
-            </form>
-          </aside>
-
-          <div className={isCompare ? "grid xl:grid-cols-2 gap-8" : "w-full"}>
-            <AnalysisResultView result={result1} error={error1} loading={loading} />
-            {isCompare && <AnalysisResultView result={result2} error={error2} loading={loading} />}
+            <button
+              type="button"
+              onClick={() => setIsCompare(!isCompare)}
+              className={`text-[10px] uppercase tracking-wider px-3 py-1 rounded-md transition-all flex items-center gap-1.5 font-bold shrink-0 ${
+                isCompare
+                  ? "bg-white text-black shadow-sm"
+                  : "bg-[#111111] text-[#A1A1AA] hover:bg-[#161616] hover:text-white border border-[#27272A] hover:border-[#3F3F46]"
+              }`}
+            >
+              <LayoutPanelLeft className="w-3 h-3" />
+              {isCompare ? "Peer Comparison: Active" : "Compare Peer: Off"}
+            </button>
           </div>
-          
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-[#71717A]">
+                Primary Asset Ticker
+              </label>
+              <input
+                value={symbol1}
+                onChange={(event) => setSymbol1(event.target.value)}
+                placeholder="e.g. RELIANCE.NS"
+                className="w-full rounded-lg border border-[#27272A] bg-[#111111] px-3.5 py-2.5 text-xs font-mono font-medium text-white placeholder-[#71717A] outline-none transition-all focus:border-[#3F3F46]"
+              />
+            </div>
+
+            {isCompare && (
+              <div className="space-y-1.5 animate-in fade-in">
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-[#71717A]">
+                  Secondary Peer Ticker
+                </label>
+                <input
+                  value={symbol2}
+                  onChange={(event) => setSymbol2(event.target.value)}
+                  placeholder="e.g. TCS.NS"
+                  className="w-full rounded-lg border border-[#27272A] bg-[#111111] px-3.5 py-2.5 text-xs font-mono font-medium text-white placeholder-[#71717A] outline-none transition-all focus:border-[#3F3F46]"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-[#71717A]">
+                Execution Horizon
+              </label>
+              <select
+                value={timeframe}
+                onChange={(event) => setTimeframe(event.target.value)}
+                className="w-full rounded-lg border border-[#27272A] bg-[#111111] px-3.5 py-2.5 text-xs font-medium text-white outline-none transition-all focus:border-[#3F3F46] appearance-none cursor-pointer"
+              >
+                <option value="short">Tactical (1-3 months)</option>
+                <option value="medium">Intermediate (3-12 months)</option>
+                <option value="long">Secular (1-5 years)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-[#71717A]">
+                Risk Tolerance Profile
+              </label>
+              <select
+                value={riskProfile}
+                onChange={(event) => setRiskProfile(event.target.value)}
+                className="w-full rounded-lg border border-[#27272A] bg-[#111111] px-3.5 py-2.5 text-xs font-medium text-white outline-none transition-all focus:border-[#3F3F46] appearance-none cursor-pointer"
+              >
+                <option value="conservative">Capital Preservation (Low Beta)</option>
+                <option value="balanced">Balanced (Core Growth)</option>
+                <option value="aggressive">Alpha Expansion (High Beta)</option>
+              </select>
+            </div>
+
+            <div className={`${!isCompare ? "xl:col-span-1" : ""}`}>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg bg-white hover:bg-[#E5E5E5] px-5 py-2.5 text-xs font-bold text-black transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+              >
+                <div className="flex items-center justify-center gap-2 font-mono">
+                  {loading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                      Executing Swarm...
+                    </>
+                  ) : (
+                    <>{isCompare ? "Launch Comparison" : "AI Analysis"}</>
+                  )}
+                </div>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* ALL ANALYSIS BELOW IT (FULL WIDTH) */}
+        <div className={isCompare ? "grid xl:grid-cols-2 gap-8 w-full" : "w-full"}>
+          <AnalysisResultView result={result1} error={error1} loading={loading} symbol={symbol1} />
+          {isCompare && <AnalysisResultView result={result2} error={error2} loading={loading} symbol={symbol2} />}
         </div>
       </div>
     </div>

@@ -22,6 +22,7 @@ const WatchlistButton = ({
   isInWatchlist,
   showTrashIcon = false,
   type = "button",
+  className,
   onWatchlistChange,
 }: WatchlistButtonProps) => {
   const [added, setAdded] = useState<boolean>(!!isInWatchlist);
@@ -56,22 +57,30 @@ const WatchlistButton = ({
   if (type === "icon") {
     return (
       <button
-        className={`p-2 rounded-full hover:bg-white/10 transition-colors ${added ? "text-yellow-500" : "text-gray-400"}`}
+        className={`p-2 rounded-lg hover:bg-[#161616] transition-colors duration-200 ${
+          added ? "text-[#d4a017]" : "text-[#71717A] hover:text-white"
+        }`}
         onClick={handleClick}
       >
-        {showTrashIcon && added ? <Trash2 size={18} /> : <Star size={18} fill={added ? "currentColor" : "none"} />}
+        {showTrashIcon && added ? <Trash2 size={16} /> : <Star size={16} fill={added ? "currentColor" : "none"} />}
       </button>
     );
   }
 
   return (
     <button
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-        added ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-blue-500 text-white hover:bg-blue-600"
-      }`}
+      className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 cursor-pointer ${
+        added
+          ? "bg-[#111111] border border-[#27272A] text-white hover:border-[#FF495B] hover:text-[#FF495B]"
+          : "bg-white text-black hover:bg-[#E5E5E5] shadow-sm"
+      } ${className || ""}`}
       onClick={handleClick}
     >
-      {showTrashIcon && added ? <Trash2 size={16} /> : <Star size={16} fill={added ? "currentColor" : "none"} />}
+      {showTrashIcon && added ? (
+        <Trash2 size={15} />
+      ) : (
+        <Star size={15} fill={added ? "currentColor" : "none"} />
+      )}
       <span>{label}</span>
     </button>
   );

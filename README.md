@@ -1,176 +1,257 @@
-# AI-Powered Stock Market Analysis Platform
+# MarketMind — AI-Agentic Stock Intelligence Terminal
 
-A compact, opinionated Next.js dashboard for stock tracking, news aggregation, and on-demand analysis — built with TypeScript, Tailwind CSS, MongoDB, and an agentic AI analysis pipeline powered by LangGraph + Gemini. 🚀
+An institutional-grade, multi-agent quantitative market intelligence terminal and stock analysis platform. Built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **MongoDB**, **LangGraph**, and powered by **Anthropic Claude Sonnet 5.5**. 🚀
 
-[![Build Status](https://img.shields.io/badge/build-pending-lightgrey)](https://example.com) [![Deploy](https://img.shields.io/badge/deploy-ready-blue)](https://example.com) [![Live Demo](https://img.shields.io/badge/demo-online-brightgreen)](https://stock-market-sandy.vercel.app)
+MarketMind bridges the gap between raw quantitative market telemetry and cognitive AI reasoning. Instead of treating LLMs as calculators or relying on single monolithic prompts, MarketMind computes **20+ mathematical indicators deterministically** from live market data feeds and orchestrates an autonomous swarm of **5 specialized research agents** in a directed acyclic graph (DAG) via LangGraph to produce institutional-grade investment reports.
+
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.1-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph%20DAG-orange)](https://github.com/langchain-ai/langgraphjs)
+[![Claude Sonnet](https://img.shields.io/badge/AI%20Core-Claude%20Sonnet%205.5-purple?logo=anthropic)](https://www.anthropic.com/)
+[![Tailwind CSS](https://img.shields.io/badge/UI-Monochrome%20Luxury-000000?logo=tailwindcss)](https://tailwindcss.com/)
+[![MongoDB](https://img.shields.io/badge/Database-MongoDB%20Atlas-green?logo=mongodb)](https://www.mongodb.com/)
 
 ---
 
-## Visuals
+## 🖼️ Visuals & Platform Showcase
 
-Below are curated screenshots that showcase the main flows and UI of the app. Each image is presented individually with a short caption to make the README cleaner and easier to scan.
+Curated screenshots showcasing the key interfaces, multi-agent workflows, and quantitative visualizations of the MarketMind terminal:
 
-### Dashboard
+### 1. Main Dashboard & Market Telemetry
 ![Dashboard](public/assets/readme_images/dashboard.png)
-A high-level market overview with TickerTape and heatmap, designed for quick monitoring.
+*Real-time global market overview featuring interactive TickerTape, Stock Heatmap, and live market quotes.*
 
 ---
 
-### Watchlist
-![Watchlist](public/assets/readme_images/Watchlist.png)
-Personal watchlist with real-time prices, quick actions, and latest related news.
+### 2. AI Market Intelligence Terminal & Command Console
+![Stock Analysis Terminal](public/assets/readme_images/Stock_Analysis.png)
+*Institutional analysis console featuring primary asset selection, execution horizon controls, risk profile customization, real-time price quotes, and comprehensive executive synthesis.*
 
 ---
 
-### Stock Screener
-![Stock Screener](public/assets/readme_images/Stock_Screener.png)
-Filter and discover stocks using multiple criteria and exportable results.
+### 3. Autonomous Multi-Agent Swarm in Execution
+![Agents Working](public/assets/readme_images/Stock_Analysis_Agents_Working.png)
+*Live LangGraph DAG pipeline execution showing active node states across all 5 specialist agents (Technical, Fundamental, Sentiment, Risk, Peer Comparator) with real-time streaming progress logs.*
 
 ---
 
-### Stock Page
+### 4. Institutional Quantitative Visualizations & Factor Models
+![Stock Analysis Charts](public/assets/readme_images/StockAnalysis_Charts.png)
+*Advanced visual analytics including Multi-Horizon Target Price Trajectory, Moving Average Extension Channels, Multi-Factor Radar Matrix, Conviction Gauge, and Sector Valuation Benchmarking.*
+
+---
+
+### 5. Detailed Stock Research & Interactive Charts
 ![Stock Page](public/assets/readme_images/Stock_page.png)
-Detailed single-stock view with charts, fundamentals, and technical indicators.
+*Detailed single-stock view integrating TradingView advanced candlestick charting, technical summary gauges, corporate profile, and audited financials.*
 
 ---
 
-### Stock Analysis
-![Stock Analysis](public/assets/readme_images/Stock_Analysis.png)
-Agentic AI analysis output (LangGraph + Gemini) shown as structured markdown insights.
+### 6. Institutional Stock Screener
+![Stock Screener](public/assets/readme_images/Stock_Screener.png)
+*Institutional multi-parameter stock screener tracking 5,000+ Indian (NSE/BSE) and global equities with live sorting across market cap, volume, and valuation.*
 
 ---
 
-### Login Page
+### 7. Persistent Portfolio Watchlist
+![Watchlist](public/assets/readme_images/Watchlist.png)
+*Custom user watchlists backed by MongoDB with live pricing updates, quick actions, and targeted financial news feeds.*
+
+---
+
+### 8. Command Palette & Global Search
+![Search](public/assets/readme_images/Search.png)
+*Instant symbol search and command palette supporting Indian equities (NSE/BSE) and global tickers.*
+
+---
+
+### 9. Authentication & Secure Onboarding
 ![Login Page](public/assets/readme_images/Login_Page.png)
-Clean authentication UI with email/password signup and contextual onboarding.
+*Dark luxury authentication UI powered by Better Auth with cookie-based session management.*
 
 ---
 
-> Add the PNG files to `public/assets/readme_images/` so screenshots render in the README.
+## 🏛️ System Architecture (Engine V2)
 
-Live demo: https://stock-market-sandy.vercel.app
-
----
-
-## The Why
-
-Investors and traders need a lightweight, fast interface to monitor prices, collect news, and keep personal watchlists without the overhead of heavy trading platforms. Stock Markett provides:
-
-- A single-pane dashboard for quick stock lookups and visualizations
-- Persistent user watchlists and signup flows
-- High-quality AI stock analysis and reporting
-
-This project is a powerful demonstration of modern full-stack capabilities: secure authentication, persistent storage, real-time data integration, agentic AI workflows, and a highly responsive React UI.
-
----
-
-## Key Features
-
-- **Next.js App Router + TypeScript** — modern SSR/SSG and clean type-safety across the stack.
-- **Persistent Watchlist (MongoDB + Mongoose)** — users can save & manage watchlists stored in MongoDB.
-- **Auth with Better Auth** — email/password auth with `better-auth` and cookie-based session handling.
-- **Real-Time Trading UIs** — embedded TradingView widgets and TickerTape components for interactive, real-time market charts.
-- **AI Stock Analysis (LangGraph + Gemini)** — agentic analysis pipeline using `@langchain/langgraph` and `@langchain/google-genai` to orchestrate data-fetch → LLM analysis nodes.
-- **Market Data APIs** — Aggregates real-time data from Yahoo Finance and Google News for comprehensive financial metrics, technical indicators, and live market context.
-
----
-
-## AI Stock Analysis (LangGraph Agentic Workflow)
-
-This project implements an advanced agentic, state-graph workflow for per-symbol AI-driven analysis located at [app/api/stock-analysis/route.ts](app/api/stock-analysis/route.ts). The pipeline has been significantly upgraded to provide professional-grade, actionable insights:
-
-- **3-Node Orchestration**: A LangGraph `StateGraph` runs `fetch_stock` and `fetch_news` in parallel to gather quantitative metrics and real-time market context, followed by the `analyze` node.
-- **News Decoupling**: The AI relies purely on technical/fundamental data, while real-time news is streamed to the client separately to prevent context hallucination.
-- **Richer Technical Data**: The `fetch_stock` node computes advanced indicators including EMA (12 & 26), MACD crossovers, Bollinger Bands, and Volume Trends (modularized in `lib/utils/technical-indicators.ts`).
-- **Peer & Industry Context**: The AI actively compares the target stock's valuation (P/E, ROE, margins) against top sector peers (e.g., TCS vs INFY) to ground its analysis.
-- **Batch Query Optimizations**: Heavy use of `Promise.all` and Yahoo Finance's batch API (`yahooFinance.quote([symbols])`) to eliminate network request waterfalls and fetch fallback/search data in a single network pass.
-- **Streaming Structured JSON**: Uses LangChain's `.stream()` API to stream strict, validated JSON directly to the frontend. This creates a ChatGPT-like real-time typing experience, eliminating long loading spinners.
-- **MongoDB Caching**: Analysis results are stored in a MongoDB `AnalysisCache` collection with a 1-hour TTL. Repeat requests load instantly, saving Gemini API costs.
-- **Sector-Aware UI Scoring**: The client-side dashboard dynamically scores the stock using sector-specific P/E benchmarks (e.g., scoring a P/E of 60 differently for Tech vs Banks).
-- **Analysis History & Comparison**: Users can revisit past analyses stored in the database or run side-by-side comparison modes to evaluate two stocks against each other.
-- **Actionable Prompt Engineering**: The Gemini LLM is prompted with strict SEBI-analyst constraints to return precise numbers, trigger levels, and concrete Bull & Bear case scenarios instead of vague advice.
-
-Example request (curl):
-
-```bash
-curl -X POST http://localhost:3000/api/stock-analysis \
-	-H "Content-Type: application/json" \
-	-d '{"symbol":"TCS", "timeframe":"medium", "riskProfile":"balanced"}'
+```mermaid
+flowchart TD
+    A["User Input: Symbol, Timeframe, Risk Profile"] --> B["Node 1: Data Ingestion & Math Engine"]
+    B -->|20+ Computed Indicators + Audited Financials| C{"LangGraph Parallel Swarm"}
+    
+    C --> D["Technical Analyst Agent"]
+    C --> E["Fundamental Analyst Agent"]
+    C --> F["Sentiment & Flow Agent"]
+    C --> G["Risk Assessment Officer"]
+    C --> H["Sector Peer Comparator"]
+    
+    D & E & F & G & H --> I["Deterministic Scoring Engine (0–100)"]
+    I --> J["Chief Investment Analyst (Claude Sonnet 5.5)"]
+    J --> K["Institutional Trade Matrix & Action Plan"]
+    K --> L["Client Stream (SSE) + MongoDB Cache"]
 ```
 
-Response (trimmed): JSON containing `symbol`, `timeframe`, `riskProfile`, `stockData` (snapshot) and `analysis` (markdown string).
+---
+
+## ⚡ Key Highlights & Capabilities
+
+### 1. Zero-Hallucination Quantitative Math Engine
+In high-stakes financial analysis, LLMs cannot be trusted with arithmetic. MarketMind decouples quantitative calculations from cognitive synthesis. The backend computes **20+ mathematical indicators** directly from 180–240 days of historical daily OHLCV trading bars:
+* **Trend & Structure:** SMA (20, 50, 200), EMA (12, 26), ADX (14) trend strength, Supertrend (ATR-based dynamic floor).
+* **Momentum & Divergence:** RSI (14), MACD (12, 26, 9 Line, Signal, Histogram), Stochastic Oscillator (%K, %D), Williams %R.
+* **Volatility & Risk Channels:** Average True Range (ATR 14), Bollinger Bands (Upper, Middle, Lower, %B bandwidth), Keltner Channels, Annualized Volatility %.
+* **Volume & Institutional Flow:** On-Balance Volume (OBV), Volume Weighted Average Price (VWAP), Money Flow Index (MFI), Volume Velocity Trend.
+* **Fundamental Audits:** Trailing & Forward P/E, Price-to-Book (P/B), Return on Equity (ROE), Debt-to-Equity, Net Margin, Operating Margin, Revenue Growth YoY, Earnings Growth YoY, and Free Cash Flow.
+
+### 2. Autonomous Multi-Agent Swarm (LangGraph)
+Rather than executing a single generic prompt, MarketMind decomposes the evaluation across 5 parallel research tracks:
+* **Technical Analyst (`technical-analyst.ts`):** Evaluates trend regimes (`TRENDING_UP`, `TRENDING_DOWN`, `RANGING`, `VOLATILE`), institutional support/resistance anchors, and momentum divergences.
+* **Fundamental Analyst (`fundamental-analyst.ts`):** Evaluates multiples against sector peer cohorts, assigns profitability quality grades (`A` through `F`), and audits balance-sheet solvency.
+* **Sentiment & Liquidity Analyst (`sentiment-analyst.ts`):** Ingests Money Flow Index and volume structures to detect whether smart money is accumulating or distributing shares.
+* **Risk Officer (`risk-analyst.ts`):** Stress-tests business risk, multiple contraction sensitivity, beta risk, and macroeconomic headwinds.
+* **Sector Peer Comparator (`peer-comparator.ts`):** Benchmarks the asset against top industry competitors (e.g., comparing `LT.NS` against `SIEMENS`, `ABB`, `HAL`, and `BEL`) on relative valuation and price performance.
+
+### 3. Chief Analyst Synthesis (Claude Sonnet 5.5)
+All verified mathematical facts, specialist agent outputs, and peer data are ingested by **Claude Sonnet 5.5** acting as the Chief Investment Officer. It synthesizes:
+* **Executive Summary:** Comprehensive multi-factor investment thesis.
+* **Target Price Horizon Ladder:** Timeframe-adjusted price targets (1–3 Months, 3–6 Months, 6–12 Months).
+* **Asymmetric Risk Framework:** Clear upside bull case vs. strict bear case invalidation floor.
+* **Institutional Action Plan:** Recommended staggered accumulation price zones and systematic stop-loss levels.
+* **Monitoring Checklist & Upcoming Catalysts:** Key events, earnings dates, and technical triggers to track.
+
+### 4. Deterministic Conviction Scoring Framework
+To prevent arbitrary AI score drift, a weighted deterministic formula calculates the **Conviction Score (0–100)**:
+$$\text{Final Score} = (\text{Technical} \times 0.40) + (\text{Fundamental} \times 0.40) + (\text{Sentiment \& Risk} \times 0.20)$$
+The result is dynamically calibrated against the investor's selected **Execution Horizon** (Short, Medium, Long) and **Risk Profile** (Conservative, Balanced, Aggressive) to produce unambiguous decisions: `STRONG_BUY`, `ACCUMULATE`, `NEUTRAL`, `TRIM`, or `EXIT`.
+
+### 5. Premium Dark Luxury Monochrome UI/UX
+Designed with a black-dominant, high-end SaaS minimalist aesthetic:
+* **Color Palette:** `#050505` primary canvas, `#0A0A0A` secondary canvas, `#111111` card surfaces, `#27272A` subtle borders, `#FFFFFF` high-contrast typography, and `#71717A` muted metadata.
+* **Live Pipeline DAG Flowchart:** An interactive flowchart visualizing agent node execution states in real-time, accompanied by a streaming SSE terminal execution feed.
+* **Institutional Charts & Data Visuals:** Recharts Moving Average Extension Chart, Target Price Trajectory Ladder, Conviction Gauge, Sector Valuation Benchmark Bar, and Factor Radar Chart.
+
+### 6. Seamless TradingView Integrations
+* **Symbol Profile Widget:** Live corporate background, sector, and industry data via TradingView's official `embed-widget-symbol-profile.js`.
+* **Audited Financial Statements:** Integrated TradingView financials widget (`financials.js`) for balance sheet, income statement, and cash flow history.
+* **Stock Screener:** Fully responsive stock screener widget (`embed-widget-screener.js`) tracking 5,000+ Indian (NSE/BSE) and global equities.
+* **Advanced Candlestick Charts & Technical Gauges:** Interactive TradingView charting with multi-interval indicators.
+
+### 7. Production-Ready Resilience & Performance
+* **Zod Schema Validation:** Every agent output is strictly validated against schemas in `lib/engine/schemas.ts`.
+* **Graceful Mathematical Fallback:** If external LLM APIs experience rate limits, the system automatically runs deterministic quantitative fallbacks so reports always render.
+* **Tiered MongoDB Caching:** 1-hour TTL caching prevents redundant API charges on repeat ticker queries, while the **Start Analysis** action bypasses cache on demand.
 
 ---
 
+## 🛠️ Tech Stack
+
+### Frontend & UI
+* **Framework:** Next.js 16 (App Router)
+* **Language:** TypeScript 5.0
+* **Styling:** Tailwind CSS (Custom Dark Luxury Monochrome Tokens)
+* **Components:** Radix UI primitives, Lucide Icons, Sonner toasts
+* **Data Visualization:** Recharts, TradingView Embed Widgets
+
+### AI & Agentic Engine
+* **Orchestration:** LangGraph (`@langchain/langgraph`)
+* **Primary LLM:** Anthropic Claude Sonnet 5.5 (via native HTTP streaming client)
+* **Secondary LLM:** Google Gemini (`@langchain/google-genai`), OpenAI, Groq
+* **Schema Validation:** Zod
+
+### Backend & Database
+* **Runtime:** Node.js (Next.js Edge & Node Server Functions)
+* **Database:** MongoDB Atlas via Mongoose
+* **Authentication:** Better Auth (`better-auth`) with secure session handling
+* **Financial APIs:** Yahoo Finance (`yahoo-finance2`), Google News RSS
+
 ---
 
-## Tech Stack
+## 📁 Directory Structure
 
-Frontend
-
-- Next.js (App Router)
-- React 19 + TypeScript
-- Tailwind CSS
-
-Backend
-
-- Node.js (Next.js API routes)
-- `better-auth` for authentication
-
-Database / Tools
-
-- MongoDB (Mongoose)
-- Yahoo Finance / Google News RSS / Gemini AI (integration points)
-- ESLint, TypeScript, Tailwind CSS, Turbopack
+```text
+├── app/
+│   ├── (auth)/                  # Sign-in and sign-up pages
+│   ├── (root)/
+│   │   ├── analysis/            # AI Intelligence Terminal & Swarm Flowchart
+│   │   ├── screeners/           # Institutional Stock Screener
+│   │   ├── stocks/[symbol]/     # Individual stock details & charts
+│   │   ├── watchlist/           # User persistent watchlist
+│   │   └── page.tsx             # Main dashboard (Heatmap, Market Quotes)
+│   ├── api/
+│   │   ├── stock-analysis/      # SSE streaming endpoint for multi-agent graph
+│   │   ├── news/                # Financial news aggregation route
+│   │   └── watchlist/           # Watchlist management API
+│   └── globals.css              # Global dark luxury monochrome design tokens
+├── components/                  # Reusable UI & TradingView widgets
+├── database/                    # Mongoose connection & MongoDB models
+├── hooks/                       # Custom hooks (TradingView widget loader, debounce)
+└── lib/
+    ├── actions/                 # Server actions (stocks, news, watchlist, analysis)
+    └── engine/                  # MarketMind Engine V2 Core
+        ├── agents/              # 5 Specialist agents + Chief analyst
+        ├── indicators/          # 20+ pure mathematical indicator formulas
+        ├── infra/               # LLM provider (Claude Sonnet), rate limiter, cache
+        ├── graph.ts             # LangGraph DAG workflow definition
+        ├── scoring.ts           # Deterministic multi-factor scoring algorithm
+        ├── schemas.ts           # Zod output validation schemas
+        └── types.ts             # Shared TypeScript interfaces
+```
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
+* **Node.js:** v18.0.0 or higher
+* **Package Manager:** npm or pnpm
+* **MongoDB:** A running MongoDB Atlas cluster or local MongoDB instance
 
-- Node.js 18+ (or latest LTS)
-- npm (or yarn/pnpm)
-- A running MongoDB instance (Atlas or local)
-
-### Installation
+### 1. Clone & Install
 
 ```bash
-git clone <your-repo-url>
-cd stock_market
+git clone https://github.com/your-username/MarketMind-AI-Agentic-Stock-Analysis-Platform.git
+cd MarketMind-AI-Agentic-Stock-Analysis-Platform
 npm install
-# or: pnpm install
 ```
 
-### Environment
+### 2. Environment Configuration
 
-Create a `.env` from the template and fill in values:
+Create a `.env` file in the root directory:
 
 ```env
-# MongoDB connection string
-MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.example.mongodb.net/stock_market
+# MongoDB Connection String
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/marketmind
 
-# Better Auth configuration
-BETTER_AUTH_SECRET=replace_me_with_a_strong_random_secret
+# Better Auth Configuration
+BETTER_AUTH_SECRET=your_super_secret_session_key
 BETTER_AUTH_URL=http://localhost:3000
 
-# Gemini API key used for Stock Analysis
-GEMINI_API_KEY=replace_with_gemini_api_key
+# Anthropic Claude API Configuration
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+CLAUDE_MODEL=claude-sonnet-5-5
 
-# Optional: NODE_ENV (development|production)
+# Optional: Google Gemini / OpenAI / Groq (Fallbacks)
+# GEMINI_API_KEY=your_gemini_api_key
+# OPENAI_API_KEY=your_openai_api_key
+# GROQ_API_KEY=your_groq_api_key
+
+# Financial Market APIs
+FINNHUB_API_KEY=your_finnhub_key_here
+TWELVE_DATA_API_KEY=your_twelve_data_key_here
+NEXT_PUBLIC_GNEWS_API_KEY=your_gnews_key_here
+
+# Environment Mode
 NODE_ENV=development
 ```
 
-Save the file as `.env` at project root.
-
-### Run (dev)
+### 3. Run Development Server
 
 ```bash
 npm run dev
-# Visit http://localhost:3000
 ```
 
-### Build & Start (production)
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 4. Build for Production
 
 ```bash
 npm run build
@@ -179,36 +260,41 @@ npm start
 
 ---
 
-## Architecture / Project Structure
+## 🧪 Testing the Multi-Agent Pipeline
 
-Top-level layout (trimmed):
+To test the multi-agent graph directly via cURL:
 
-- `app/` — Next.js App Router pages and layouts
-- `components/` — UI components and widgets (TradingView, TickerTape, Watchlist UI)
-- `lib/` — client libraries, API wrappers, and server actions
-- `database/` — MongoDB connection (`mongoose.ts`) and models (`models/*.ts`)
-- `hooks/` — React hooks (`useDebounce`, TradingView hook)
-- `api/` — server API routes used by client pages (`/api/news`, `/api/stock-analysis`)
+```bash
+curl -X POST http://localhost:3000/api/stock-analysis \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "RELIANCE.NS",
+    "timeframe": "medium",
+    "riskProfile": "balanced",
+    "forceRefresh": true
+  }'
+```
 
-Example important files:
-
-- [database/mongoose.ts](database/mongoose.ts) — MongoDB connection helper
-- [lib/better-auth/auth.ts](lib/better-auth/auth.ts) — authentication setup
-- [components/WatchlistTable.tsx](components/WatchlistTable.tsx) — watchlist UI
-
----
-
-## Future Roadmap
-
-1. Add OAuth providers (Google/GitHub) via `better-auth` for faster onboarding.
-2. Real-time WebSocket feed for live quotes and push notifications.
-3. Advanced analytics: portfolio P&L, historical charts, and export CSVs.
-4. CI/CD + Vercel deployment template with preview environments and test coverage reporting.
+The endpoint will return a Server-Sent Events (SSE) stream broadcasting:
+1. `step`: Agent node execution updates (DataCollector $\to$ TechnicalAnalyst $\to$ FundamentalAnalyst $\to$ SentimentAnalyst $\to$ RiskAnalyst $\to$ PeerComparator $\to$ ChiefAnalyst).
+2. `stockData`: Quantitative indicator snapshot.
+3. `token`: Complete institutional analysis JSON payload.
 
 ---
 
-## Contact / Support
+## 📈 Roadmap
 
-- GitHub: https://github.com/your-username/stock_market
-- LinkedIn: https://www.linkedin.com/in/your-name
-- Email: your.email@example.com
+- [x] Engine V2: 5-Agent parallel DAG architecture with LangGraph.
+- [x] Zero-hallucination mathematical indicator calculation engine (20+ indicators).
+- [x] Claude Sonnet 5.5 integration with token telemetry logging.
+- [x] Premium dark luxury monochrome aesthetic.
+- [x] Real-time SSE flowchart DAG progress visualization.
+- [ ] Portfolio risk simulation and VaR (Value at Risk) stress-testing.
+- [ ] Automated scheduled morning market briefings.
+- [ ] Multi-asset coverage (Crypto, Forex, US Equities).
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
